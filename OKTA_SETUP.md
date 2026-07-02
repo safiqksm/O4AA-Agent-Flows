@@ -290,36 +290,39 @@ This flow exchanges an Okta token for a brokered Microsoft Graph token, then rea
    - **Redirect URI:** platform **Web**, value `https://ntrsoiesys.oktapreview.com/oauth2/v1/sts/callback`
 4. Click **Register**
 5. Go to **Certificates & secrets → New client secret**, copy the secret **Value**
-6. Go to **API permissions** — confirm **Microsoft Graph → User.Read** (delegated) is present (added by default)
+6. Go to **API permissions**:
+   - Confirm **Microsoft Graph → User.Read** (delegated) is present (added by default)
+   - Click **Add a permission → Microsoft Graph** and add the **Agent instance read**
+     permission — Okta's STS broker needs it to act as an agent against this client ID
+   - Grant admin consent if your tenant requires it
 7. From the **Overview** page copy:
    - **Application (client) ID** → needed in the next step
    - The client secret value → needed in the next step
 
-### Step B — Create the Azure integration in Okta
+### Step B — Create the Office 365 integration in Okta
 
-> **⚠️ Availability (as of July 2026):** STS-brokered resource connections require an
-> **XAA-enabled OIN integration** — one whose app page exposes a **Client authentication
-> settings** section (this is where the GitHub integration takes its OAuth client ID and
-> secret, under the app's Sign-On settings). **No Microsoft / Azure / Entra entry in the
-> OIN currently has this section**, and Microsoft is not in Okta's announced Cross App
-> Access resource-app ecosystem yet. Until Okta ships an XAA-enabled Microsoft
-> integration, Steps B and C cannot be completed and the Azure flow will report
-> "STS Azure flow is not configured" — the app code is ready and degrades gracefully.
-
-When an XAA-enabled Microsoft integration becomes available, the steps mirror GitHub:
+> **Why Office 365?** There is no dedicated XAA-enabled **Microsoft / Entra** entry in
+> the OIN — Okta cannot connect to Entra directly today. But the **Microsoft Office 365**
+> OIN app *is* XAA-enabled: its **Sign-On** tab exposes the **Client authentication
+> settings** section (the same section the GitHub integration uses), so it can carry the
+> Entra app credentials for the STS broker.
 
 1. In Okta Admin, go to **Applications → Applications → Browse App Catalog**
-2. Add the XAA-enabled **Microsoft / Entra** integration
-3. On the app's **Sign-On** tab, find **Client authentication settings**
-4. Fill in the Entra **client ID** and **client secret** from Step A
-5. Save
+2. Add the **Microsoft Office 365** integration
+3. During setup, fill in your Entra tenant details:
+   - **Microsoft Tenant Name:** `shafiq`
+   - **Office 365 domain:** `shafiq.onmicrosoft.com`
+4. Complete the setup / provisioning screens with the **default values**
+5. On the app's **Sign-On** tab, find **Client authentication settings**
+6. Fill in the Entra **client ID** and **client secret** from Step A
+7. Save
 
 ### Step C — Add Azure as a Resource Connection on the AI Agent
 
 1. Go to **AI Agents** → open your **XAA AI Agent**
 2. Click the **Resource Connections** tab
 3. Click **Add Resource Connection**
-4. Select **Application → Okta Integration Network (OIN) app** and choose the Microsoft integration from Step B
+4. Select **Application → Okta Integration Network (OIN) app** and choose the **Office 365** app from Step B
 5. Click **Add** — the Resource Indicator populates automatically
 6. Copy the **ORN** shown for this connection → `AZURE_RESOURCE`
 
@@ -334,8 +337,9 @@ AZURE_SCOPES=
 
 | Symptom | Likely cause |
 |---|---|
-| No client ID/secret fields on the Okta app | The integration is a plain SSO/provisioning app, not XAA-enabled — see the availability note above |
+| No client ID/secret fields on the Okta app | Wrong OIN entry — use **Microsoft Office 365** (XAA-enabled, has Client authentication settings); plain Entra/Azure SSO entries don't |
 | Consent loop never succeeds | Redirect URI in the Entra app doesn't match `https://<okta-domain>/oauth2/v1/sts/callback` |
+| T2 token exchange rejected | **Agent instance read** Graph permission missing on the Entra app (Step A.6), or admin consent not granted |
 | T3 Graph call fails 401 | Brokered token not a Graph token — check the Entra app / connection configuration |
 | T3 `/me/memberOf` fails 403 | `User.Read` delegated permission missing on the Entra app |
 
