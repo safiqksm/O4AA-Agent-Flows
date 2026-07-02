@@ -243,10 +243,13 @@ This flow exchanges an Okta token for a brokered GitHub token, then reads or cre
 2. Click **Browse App Catalog** (OIN)
 3. Search for **GitHub** and select the GitHub integration
 4. Click **Add Integration**
-5. Fill in:
+5. On the app's **Sign-On** tab, find the **Client authentication settings** section and fill in:
    - **GitHub OAuth Client ID:** (from Step A)
    - **GitHub OAuth Client Secret:** (from Step A)
-6. Click **Done**
+6. Click **Save**
+
+> Only XAA-enabled OIN integrations have the **Client authentication settings** section —
+> it's what makes an app usable as an STS resource connection.
 
 ### Step D — Add GitHub as a Resource Connection on the AI Agent
 
@@ -294,18 +297,30 @@ This flow exchanges an Okta token for a brokered Microsoft Graph token, then rea
 
 ### Step B — Create the Azure integration in Okta
 
-1. In Okta Admin, go to **Applications → Applications**
-2. Add the Azure / Microsoft Entra integration from the app catalog (or the same integration type used for the GitHub STS connection on your tenant)
-3. Fill in the Entra **client ID** and **client secret** from Step A
-4. Save
+> **⚠️ Availability (as of July 2026):** STS-brokered resource connections require an
+> **XAA-enabled OIN integration** — one whose app page exposes a **Client authentication
+> settings** section (this is where the GitHub integration takes its OAuth client ID and
+> secret, under the app's Sign-On settings). **No Microsoft / Azure / Entra entry in the
+> OIN currently has this section**, and Microsoft is not in Okta's announced Cross App
+> Access resource-app ecosystem yet. Until Okta ships an XAA-enabled Microsoft
+> integration, Steps B and C cannot be completed and the Azure flow will report
+> "STS Azure flow is not configured" — the app code is ready and degrades gracefully.
+
+When an XAA-enabled Microsoft integration becomes available, the steps mirror GitHub:
+
+1. In Okta Admin, go to **Applications → Applications → Browse App Catalog**
+2. Add the XAA-enabled **Microsoft / Entra** integration
+3. On the app's **Sign-On** tab, find **Client authentication settings**
+4. Fill in the Entra **client ID** and **client secret** from Step A
+5. Save
 
 ### Step C — Add Azure as a Resource Connection on the AI Agent
 
 1. Go to **AI Agents** → open your **XAA AI Agent**
 2. Click the **Resource Connections** tab
 3. Click **Add Resource Connection**
-4. Select the **Azure** integration you just created (Step B)
-5. Click **Save**
+4. Select **Application → Okta Integration Network (OIN) app** and choose the Microsoft integration from Step B
+5. Click **Add** — the Resource Indicator populates automatically
 6. Copy the **ORN** shown for this connection → `AZURE_RESOURCE`
 
 ### Update `.env`:
@@ -319,6 +334,7 @@ AZURE_SCOPES=
 
 | Symptom | Likely cause |
 |---|---|
+| No client ID/secret fields on the Okta app | The integration is a plain SSO/provisioning app, not XAA-enabled — see the availability note above |
 | Consent loop never succeeds | Redirect URI in the Entra app doesn't match `https://<okta-domain>/oauth2/v1/sts/callback` |
 | T3 Graph call fails 401 | Brokered token not a Graph token — check the Entra app / connection configuration |
 | T3 `/me/memberOf` fails 403 | `User.Read` delegated permission missing on the Entra app |
