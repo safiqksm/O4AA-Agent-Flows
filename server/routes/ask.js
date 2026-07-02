@@ -4,6 +4,7 @@ import { requestIdJag, exchangeForAccessToken } from '../xaa/tokenExchange.js';
 import { requestVaultedSecret, requestServiceAccount } from '../xaa/credentialExchange.js';
 import { requestServiceToken, requestServiceIdJag, exchangeServiceIdJag } from '../xaa/serviceFlow.js';
 import { requestResourceToken, readPullRequests, openPullRequest, revokeStsToken } from '../xaa/stsBroker.js';
+import { requestAzureResourceToken, getMyProfile, getMyGroups, revokeAzureStsToken } from '../xaa/azureStsBroker.js';
 import { callMcpTool } from '../mcp/inventoryServer.js';
 import { validateAccessToken } from '../util/verifyToken.js';
 import { decodeJwt } from '../util/jwt.js';
@@ -252,6 +253,60 @@ async function runStsGithubFlow(idToken, steps, action) {
   };
 }
 
+// STS broker (Azure): resource token exchange (with consent loop) → Microsoft Graph.
+async function runStsAzureFlow(idToken, steps, action) {
+  if (!config.azureSts.resource) {
+    return { answer: 'STS Azure flow is not configured — set AZURE_RESOURCE.' };
+  }
+
+  const t2 = await requestAzureResourceToken(idToken);
+  steps.push(t2.step);
+  if (!t2.ok) {
+    if (t2.interactionUri) {
+      return {
+        answer:
+          'Consent required: authorize the Azure connection, then click Retry to re-run the request.',
+        interaction: { uri: t2.interactionUri },
+      };
+    }
+    return { answer: 'The resource token request failed — see step T2 for the error response.' };
+  }
+
+  const azureStsAccessToken = t2.accessToken;
+
+  if (action === 'groups') {
+    const t3 = await getMyGroups(azureStsAccessToken);
+    steps.push(t3.step);
+    if (!t3.ok) {
+      return { answer: 'The Microsoft Graph memberOf call failed — see step T3 for the response.', azureStsAccessToken };
+    }
+    const groups = (t3.groups || []).filter((g) => g['@odata.type'] === '#microsoft.graph.group');
+    return {
+      answer: groups.length
+        ? `You are a member of ${groups.length} group(s):\n\n` +
+          groups.map((g) => `• ${g.displayName ?? g.id}`).join('\n')
+        : 'No group memberships found for your account.',
+      azureStsAccessToken,
+    };
+  }
+
+  const t3 = await getMyProfile(azureStsAccessToken);
+  steps.push(t3.step);
+  if (!t3.ok) {
+    return { answer: 'The Microsoft Graph profile call failed — see step T3 for the response.', azureStsAccessToken };
+  }
+  const p = t3.profile || {};
+  return {
+    answer:
+      `Here is your Azure profile:\n\n` +
+      `• Name: ${p.displayName ?? '—'}\n` +
+      `• Email: ${p.mail ?? p.userPrincipalName ?? '—'}\n` +
+      `• Job title: ${p.jobTitle ?? '—'}\n` +
+      `• Office: ${p.officeLocation ?? '—'}`,
+    azureStsAccessToken,
+  };
+}
+
 router.post('/ask', async (req, res) => {
   if (!req.session.user) {
     return res.status(401).json({ error: 'not_authenticated' });
@@ -274,6 +329,12 @@ router.post('/ask', async (req, res) => {
       answer = r.answer;
       interaction = r.interaction;
       if (r.stsAccessToken) req.session.stsAccessToken = r.stsAccessToken;
+    } else if (flow === 'sts-azure') {
+      const action = /\bgroups?\b|member/i.test(question || '') ? 'groups' : 'profile';
+      const r = await runStsAzureFlow(req.session.idToken, steps, action);
+      answer = r.answer;
+      interaction = r.interaction;
+      if (r.azureStsAccessToken) req.session.azureStsAccessToken = r.azureStsAccessToken;
     } else {
       answer = await runXaaFlow(req.session.idToken, toolName, steps);
     }
@@ -312,6 +373,33 @@ router.post('/sts/revoke', async (req, res) => {
     });
   } catch (err) {
     console.error('[sts/revoke] error:', err);
+    res.json({ answer: `Revoke error: ${err.message}`, steps: [] });
+  }
+});
+
+// Revoke the stored Azure STS token (agent-authenticated) so the next exchange re-prompts consent.
+router.post('/sts/azure/revoke', async (req, res) => {
+  if (!req.session.user) {
+    return res.status(401).json({ error: 'not_authenticated' });
+  }
+  const token = req.session.azureStsAccessToken;
+  if (!token) {
+    return res.json({
+      answer: 'No Azure STS token to revoke yet — run “Get my Azure profile” first to obtain one.',
+      steps: [],
+    });
+  }
+  try {
+    const r = await revokeAzureStsToken(token);
+    if (r.ok) req.session.azureStsAccessToken = undefined;
+    res.json({
+      answer: r.ok
+        ? 'Azure STS token revoked. Run “Get my Azure profile” again to re-trigger consent.'
+        : 'Revoke request failed — see the step for details.',
+      steps: [r.step],
+    });
+  } catch (err) {
+    console.error('[sts/azure/revoke] error:', err);
     res.json({ answer: `Revoke error: ${err.message}`, steps: [] });
   }
 });
