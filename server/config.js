@@ -144,6 +144,24 @@ export const config = {
     body: process.env.GITHUB_PR_BODY || 'Opened by the AI agent using an Okta STS-brokered GitHub token.',
   },
 
+  // STS broker flow (Azure) — same mechanics as the GitHub STS flow, but the
+  // brokered token targets Microsoft Graph. May return interaction_required.
+  azureSts: {
+    tokenUrl: ORG_TOKEN_URL,
+    revokeUrl: ORG_REVOKE_URL,
+    assertionAudience: ORG_TOKEN_URL,
+    revokeAssertionAudience: process.env.STS_REVOKE_AUDIENCE || ORG_REVOKE_URL,
+    resource: process.env.AZURE_RESOURCE,
+    // Optional 'scope' on the STS token-exchange (omitted if blank). The brokered
+    // token's actual scopes are governed by the Okta Azure Resource Connection.
+    scopes: process.env.AZURE_SCOPES || undefined,
+  },
+
+  // T3 of the Azure STS flow — Microsoft Graph API base.
+  graph: {
+    apiBaseUrl: process.env.GRAPH_API_BASE_URL || 'https://graph.microsoft.com/v1.0',
+  },
+
   // Secrets flow (T2) — vaulted-secret token exchange at the org token endpoint.
   secrets: {
     tokenUrl: ORG_TOKEN_URL,
