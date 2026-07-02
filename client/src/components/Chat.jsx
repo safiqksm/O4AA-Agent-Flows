@@ -9,7 +9,9 @@ export default function Chat({ loginStep, flow }) {
       text: `Hi! ${
         flow.id === 'sts-github'
           ? 'Click “Read pull requests” or “Create a pull request” to start.'
-          : 'Ask me about inventory or recent shipments.'
+          : flow.id === 'sts-azure'
+            ? 'Click “Get my Azure profile” or “List my groups” to start.'
+            : 'Ask me about inventory or recent shipments.'
       } I’ll run it through the ${flow.name} flow.`,
     },
   ]);

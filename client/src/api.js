@@ -22,7 +22,6 @@ export async function revokeSts() {
   return res.json();
 }
 
-
 export async function revokeAzureSts() {
   const res = await fetch('/api/sts/azure/revoke', {
     method: 'POST',
