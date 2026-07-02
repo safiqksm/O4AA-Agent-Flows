@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ask, revokeSts } from '../api.js';
+import { ask, revokeSts, revokeAzureSts } from '../api.js';
 import SequenceView from './SequenceView.jsx';
 
 export default function Chat({ loginStep, flow }) {
@@ -48,7 +48,7 @@ export default function Chat({ loginStep, flow }) {
     setInteraction(null);
     setBusy(true);
     try {
-      const res = await revokeSts();
+      const res = flow.id === 'sts-azure' ? await revokeAzureSts() : await revokeSts();
       setMessages((m) => [...m, { role: 'assistant', text: res.answer }]);
       if (res.steps?.length) setSteps((prev) => [...prev, ...res.steps]);
     } catch (err) {
@@ -107,7 +107,13 @@ export default function Chat({ loginStep, flow }) {
           <input
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            placeholder={flow.id === 'sts-github' ? 'Ask the agent to read pull requests…' : 'Ask about inventory or shipments…'}
+            placeholder={
+              flow.id === 'sts-github'
+                ? 'Ask the agent to read pull requests…'
+                : flow.id === 'sts-azure'
+                  ? 'Ask the agent for your Azure profile…'
+                  : 'Ask about inventory or shipments…'
+            }
             disabled={busy}
           />
           <button className="btn-primary" type="submit" disabled={busy}>
@@ -115,7 +121,7 @@ export default function Chat({ loginStep, flow }) {
           </button>
         </form>
 
-        {flow.id === 'sts-github' && (
+        {(flow.id === 'sts-github' || flow.id === 'sts-azure') && (
           <div className="revoke-bar">
             <button className="btn-revoke" disabled={busy} onClick={revoke}>
               Revoke STS token (re-trigger consent)

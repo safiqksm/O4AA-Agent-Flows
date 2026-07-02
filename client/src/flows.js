@@ -55,6 +55,18 @@ export const FLOWS = {
       { label: 'Create a pull request', text: 'Create a pull request' },
     ],
   },
+  'sts-azure': {
+    id: 'sts-azure',
+    name: 'STS Broker (Azure)',
+    tagline: 'token-exchange → Graph token → read profile',
+    description:
+      'Exchange the user’s ID token for a Microsoft Graph access token brokered by Okta. If consent is needed, Okta returns interaction_required — authorize, then retry — and the agent reads your Azure profile or group memberships with the brokered token.',
+    accent: '#0078d4',
+    suggestions: [
+      { label: 'Get my Azure profile', text: 'Get my Azure profile' },
+      { label: 'List my groups', text: 'List my groups' },
+    ],
+  },
 };
 
 export const FLOW_LIST = Object.values(FLOWS);
