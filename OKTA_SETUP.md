@@ -1,6 +1,6 @@
 # Okta Configuration & Setup Guide
 
-This guide walks through every Okta configuration step required to run the five flows in this demo.
+This guide walks through every Okta configuration step required to run the six flows in this demo.
 
 **Tenant:** `https://ntrsoiesys.oktapreview.com`  
 **Admin console:** `https://ntrsoiesys-admin.oktapreview.com`
@@ -11,7 +11,7 @@ This guide walks through every Okta configuration step required to run the five 
 
 - Node.js 18+ installed
 - Dependencies installed: `npm install && npm run client:install`
-- `.env` file created: `cp .env.example .env`
+- `.env` file created: `cp .env-sample .env`
 
 ---
 

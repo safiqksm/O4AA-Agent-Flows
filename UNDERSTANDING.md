@@ -6,15 +6,15 @@ A detailed explanation of how this codebase works: what it does, why each piece 
 
 ## What this project is
 
-This is an **educational demo** — not a production app — that makes Okta's AI-agent token-exchange patterns *visible*. The point is that a user logs in, picks one of five authentication flows, asks a question in a chat UI, and then watches **every individual HTTP call** in the resulting chain rendered as a step card, complete with the raw request, the raw response, any decoded JWT, and a copy-paste `curl` snippet.
+This is an **educational demo** — not a production app — that makes Okta's AI-agent token-exchange patterns *visible*. The point is that a user logs in, picks one of six authentication flows, asks a question in a chat UI, and then watches **every individual HTTP call** in the resulting chain rendered as a step card, complete with the raw request, the raw response, any decoded JWT, and a copy-paste `curl` snippet.
 
 The goal is to let a developer or solutions engineer read and understand the exact protocol mechanics of each flow without reading RFCs.
 
 ---
 
-## The five flows
+## The six flows
 
-All five flows end by calling an **inventory MCP tool** (or a GitHub API). The difference is *how the agent authenticates* to reach that tool.
+All six flows end by calling an **inventory MCP tool** (or a GitHub / Microsoft Graph API). The difference is *how the agent authenticates* to reach that tool.
 
 ### 1. Cross-App Access (XAA) — `flow=xaa`
 
@@ -303,5 +303,5 @@ The `id_token` never leaves the server — it stays in the session and is used a
 | Change MCP tool data | `server/mcp/data.js` |
 | Add a new MCP tool | `server/mcp/inventoryServer.js` (add to `TOOLS` + handler) + `routes/ask.js` (`routeTool`) |
 | Change token validation rules | `server/util/verifyToken.js` |
-| Add a new environment variable | `server/config.js` + `.env.example` |
+| Add a new environment variable | `server/config.js` + `.env-sample` |
 | Change step card UI | `client/src/components/StepCard.jsx` |
