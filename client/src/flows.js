@@ -67,6 +67,18 @@ export const FLOWS = {
       { label: 'List my groups', text: 'List my groups' },
     ],
   },
+  'mcp-github': {
+    id: 'mcp-github',
+    name: 'MCP Broker (GitHub)',
+    tagline: 'token-exchange → MCP session → GitHub tools',
+    description:
+      'Exchange the user’s ID token for a brokered token via the MCP-server resource connection. If consent is needed, Okta returns interaction_required — authorize, then retry — and the agent speaks MCP (JSON-RPC) to the GitHub MCP server: initialize the session, list its tools, or call get_me.',
+    accent: '#8957e5',
+    suggestions: [
+      { label: 'List MCP tools', text: 'List MCP tools' },
+      { label: 'Who am I on GitHub', text: 'Who am I on GitHub' },
+    ],
+  },
 };
 
 export const FLOW_LIST = Object.values(FLOWS);

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ask, revokeSts, revokeAzureSts } from '../api.js';
+import { ask, revokeSts, revokeAzureSts, revokeMcpGithub } from '../api.js';
 import SequenceView from './SequenceView.jsx';
 
 export default function Chat({ loginStep, flow }) {
@@ -11,7 +11,9 @@ export default function Chat({ loginStep, flow }) {
           ? 'Click “Read pull requests” or “Create a pull request” to start.'
           : flow.id === 'sts-azure'
             ? 'Click “Get my Azure profile” or “List my groups” to start.'
-            : 'Ask me about inventory or recent shipments.'
+            : flow.id === 'mcp-github'
+              ? 'Click “List MCP tools” or “Who am I on GitHub” to start.'
+              : 'Ask me about inventory or recent shipments.'
       } I’ll run it through the ${flow.name} flow.`,
     },
   ]);
@@ -50,7 +52,12 @@ export default function Chat({ loginStep, flow }) {
     setInteraction(null);
     setBusy(true);
     try {
-      const res = flow.id === 'sts-azure' ? await revokeAzureSts() : await revokeSts();
+      const res =
+        flow.id === 'sts-azure'
+          ? await revokeAzureSts()
+          : flow.id === 'mcp-github'
+            ? await revokeMcpGithub()
+            : await revokeSts();
       setMessages((m) => [...m, { role: 'assistant', text: res.answer }]);
       if (res.steps?.length) setSteps((prev) => [...prev, ...res.steps]);
     } catch (err) {
@@ -114,7 +121,9 @@ export default function Chat({ loginStep, flow }) {
                 ? 'Ask the agent to read pull requests…'
                 : flow.id === 'sts-azure'
                   ? 'Ask the agent for your Azure profile…'
-                  : 'Ask about inventory or shipments…'
+                  : flow.id === 'mcp-github'
+                    ? 'Ask the agent to list MCP tools…'
+                    : 'Ask about inventory or shipments…'
             }
             disabled={busy}
           />
@@ -123,7 +132,7 @@ export default function Chat({ loginStep, flow }) {
           </button>
         </form>
 
-        {(flow.id === 'sts-github' || flow.id === 'sts-azure') && (
+        {(flow.id === 'sts-github' || flow.id === 'sts-azure' || flow.id === 'mcp-github') && (
           <div className="revoke-bar">
             <button className="btn-revoke" disabled={busy} onClick={revoke}>
               Revoke STS token (re-trigger consent)

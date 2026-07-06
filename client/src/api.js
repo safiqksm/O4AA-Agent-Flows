@@ -30,6 +30,14 @@ export async function revokeAzureSts() {
   return res.json();
 }
 
+export async function revokeMcpGithub() {
+  const res = await fetch('/api/mcp/github/revoke', {
+    method: 'POST',
+    credentials: 'include',
+  });
+  return res.json();
+}
+
 export async function logout() {
   await fetch('/api/logout', { method: 'POST', credentials: 'include' });
 }
