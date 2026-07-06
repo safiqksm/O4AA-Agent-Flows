@@ -484,7 +484,7 @@ router.post('/mcp/github/revoke', async (req, res) => {
   const token = req.session.mcpGithubStsToken;
   if (!token) {
     return res.json({
-      answer: 'No MCP GitHub token to revoke yet — run "List MCP tools" first to obtain one.',
+      answer: 'No MCP GitHub token to revoke yet — run “List MCP tools” first to obtain one.',
       steps: [],
     });
   }
@@ -493,7 +493,7 @@ router.post('/mcp/github/revoke', async (req, res) => {
     if (r.ok) req.session.mcpGithubStsToken = undefined;
     res.json({
       answer: r.ok
-        ? 'MCP GitHub token revoked. Run "List MCP tools" again to re-trigger consent.'
+        ? 'MCP GitHub token revoked. Run “List MCP tools” again to re-trigger consent.'
         : 'Revoke request failed — see the step for details.',
       steps: [r.step],
     });
