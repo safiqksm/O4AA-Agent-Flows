@@ -162,6 +162,21 @@ export const config = {
     apiBaseUrl: process.env.GRAPH_API_BASE_URL || 'https://graph.microsoft.com/v1.0',
   },
 
+  // MCP broker flow (GitHub) — same STS mechanics as the GitHub/Azure STS flows,
+  // but the brokered token is used to speak MCP (JSON-RPC) to a GitHub MCP server.
+  mcpGithub: {
+    tokenUrl: ORG_TOKEN_URL,
+    revokeUrl: ORG_REVOKE_URL,
+    assertionAudience: ORG_TOKEN_URL,
+    revokeAssertionAudience: process.env.STS_REVOKE_AUDIENCE || ORG_REVOKE_URL,
+    resource: process.env.MCP_GITHUB_RESOURCE,
+    // Optional 'scope' on the STS token-exchange (omitted if blank). The brokered
+    // token's actual scopes are governed by the Okta MCP-server connection.
+    scopes: process.env.MCP_GITHUB_SCOPES || undefined,
+    // Base URL registered in Okta Directory → MCP Servers.
+    url: process.env.MCP_GITHUB_URL,
+  },
+
   // Secrets flow (T2) — vaulted-secret token exchange at the org token endpoint.
   secrets: {
     tokenUrl: ORG_TOKEN_URL,
