@@ -5,6 +5,7 @@ import { requestVaultedSecret, requestServiceAccount } from '../xaa/credentialEx
 import { requestServiceToken, requestServiceIdJag, exchangeServiceIdJag } from '../xaa/serviceFlow.js';
 import { requestResourceToken, readPullRequests, openPullRequest, revokeStsToken } from '../xaa/stsBroker.js';
 import { requestAzureResourceToken, getMyProfile, getMyGroups, revokeAzureStsToken } from '../xaa/azureStsBroker.js';
+import { requestMcpGithubToken, mcpInitialize, mcpListTools, mcpCallGetMe, revokeMcpGithubToken } from '../xaa/mcpGithubBroker.js';
 import { callMcpTool } from '../mcp/inventoryServer.js';
 import { validateAccessToken } from '../util/verifyToken.js';
 import { decodeJwt } from '../util/jwt.js';
@@ -307,6 +308,71 @@ async function runStsAzureFlow(idToken, steps, action) {
   };
 }
 
+// MCP broker (GitHub): resource token exchange (with consent loop) → MCP protocol calls.
+async function runMcpGithubFlow(idToken, steps, action) {
+  if (!config.mcpGithub.resource || !config.mcpGithub.url) {
+    return { answer: 'MCP GitHub flow is not configured — set MCP_GITHUB_RESOURCE and MCP_GITHUB_URL.' };
+  }
+
+  const t2 = await requestMcpGithubToken(idToken);
+  steps.push(t2.step);
+  if (!t2.ok) {
+    if (t2.interactionUri) {
+      return {
+        answer:
+          'Consent required: authorize the GitHub MCP connection, then click Retry to re-run the request.',
+        interaction: { uri: t2.interactionUri },
+      };
+    }
+    return { answer: 'The resource token request failed — see step T2 for the error response.' };
+  }
+
+  const mcpGithubStsToken = t2.accessToken;
+
+  const t3 = await mcpInitialize(mcpGithubStsToken);
+  steps.push(t3.step);
+  if (!t3.ok) {
+    return { answer: 'The MCP initialize call failed — see step T3 for the response.', mcpGithubStsToken };
+  }
+
+  if (action === 'whoami') {
+    const t4 = await mcpCallGetMe(mcpGithubStsToken, t3.sessionId);
+    steps.push(t4.step);
+    if (!t4.ok) {
+      return { answer: 'The get_me tool call failed — see step T4 for the response.', mcpGithubStsToken };
+    }
+    const text = t4.result?.content?.find((c) => c.type === 'text')?.text;
+    let me = null;
+    if (text) {
+      try {
+        me = JSON.parse(text);
+      } catch {
+        // Keep the raw text if the tool returned non-JSON content.
+      }
+    }
+    return {
+      answer: me
+        ? `You are ${me.login ?? 'unknown'}${me.name ? ` (${me.name})` : ''} on GitHub.`
+        : `get_me returned:\n\n${text ?? JSON.stringify(t4.result, null, 2)}`,
+      mcpGithubStsToken,
+    };
+  }
+
+  const t4 = await mcpListTools(mcpGithubStsToken, t3.sessionId);
+  steps.push(t4.step);
+  if (!t4.ok) {
+    return { answer: 'The tools/list call failed — see step T4 for the response.', mcpGithubStsToken };
+  }
+  const tools = t4.tools || [];
+  return {
+    answer: tools.length
+      ? `The GitHub MCP server exposes ${tools.length} tool(s). First ${Math.min(10, tools.length)}:\n\n` +
+        tools.slice(0, 10).map((t) => `• ${t.name}`).join('\n')
+      : 'The MCP server returned no tools.',
+    mcpGithubStsToken,
+  };
+}
+
 router.post('/ask', async (req, res) => {
   if (!req.session.user) {
     return res.status(401).json({ error: 'not_authenticated' });
@@ -335,6 +401,12 @@ router.post('/ask', async (req, res) => {
       answer = r.answer;
       interaction = r.interaction;
       if (r.azureStsAccessToken) req.session.azureStsAccessToken = r.azureStsAccessToken;
+    } else if (flow === 'mcp-github') {
+      const action = /\bwho\b|whoami|profile|\bme\b/i.test(question || '') ? 'whoami' : 'tools';
+      const r = await runMcpGithubFlow(req.session.idToken, steps, action);
+      answer = r.answer;
+      interaction = r.interaction;
+      if (r.mcpGithubStsToken) req.session.mcpGithubStsToken = r.mcpGithubStsToken;
     } else {
       answer = await runXaaFlow(req.session.idToken, toolName, steps);
     }
@@ -400,6 +472,33 @@ router.post('/sts/azure/revoke', async (req, res) => {
     });
   } catch (err) {
     console.error('[sts/azure/revoke] error:', err);
+    res.json({ answer: `Revoke error: ${err.message}`, steps: [] });
+  }
+});
+
+// Revoke the stored MCP GitHub token (agent-authenticated) so the next exchange re-prompts consent.
+router.post('/mcp/github/revoke', async (req, res) => {
+  if (!req.session.user) {
+    return res.status(401).json({ error: 'not_authenticated' });
+  }
+  const token = req.session.mcpGithubStsToken;
+  if (!token) {
+    return res.json({
+      answer: 'No MCP GitHub token to revoke yet — run "List MCP tools" first to obtain one.',
+      steps: [],
+    });
+  }
+  try {
+    const r = await revokeMcpGithubToken(token);
+    if (r.ok) req.session.mcpGithubStsToken = undefined;
+    res.json({
+      answer: r.ok
+        ? 'MCP GitHub token revoked. Run "List MCP tools" again to re-trigger consent.'
+        : 'Revoke request failed — see the step for details.',
+      steps: [r.step],
+    });
+  } catch (err) {
+    console.error('[mcp/github/revoke] error:', err);
     res.json({ answer: `Revoke error: ${err.message}`, steps: [] });
   }
 });
