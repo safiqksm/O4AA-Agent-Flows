@@ -99,12 +99,13 @@ answers "MCP GitHub flow is not configured — set MCP_GITHUB_RESOURCE and MCP_G
   - Unconfigured guard (message above).
   - `action = 'whoami'` when the question matches `/\bwho\b|whoami|profile|\bme\b/i`,
     else `'tools'`.
-  - Token: reuse `req.session.mcpGithubStsToken` if present, else `requestMcpGithubToken`;
-    on `interaction_required` return `{ answer, interaction: { uri } }` (same contract the
-    client consent card already handles); on success store the token in the session.
-  - Run `mcpInitialize`; if it fails, return with the failed step (answer explains T3
-    failed). If it returns 401, clear the cached session token so the next ask
-    re-exchanges.
+  - Run `requestMcpGithubToken` on every ask (same as the GitHub/Azure STS flows — the
+    T2 card always renders); on `interaction_required` return
+    `{ answer, interaction: { uri } }` (same contract the client consent card already
+    handles); on success return the token so the router stores it in
+    `req.session.mcpGithubStsToken` for the revoke endpoint.
+  - Run `mcpInitialize`; if it fails, return with the failed step (answer explains the
+    MCP initialize failed).
   - `tools`: `mcpListTools` → answer lists tool count and first 10 tool names.
   - `whoami`: `mcpCallGetMe` → parse `result.content[0].text` as JSON when possible and
     answer with login/name; fall back to the raw text.
@@ -125,8 +126,9 @@ answers "MCP GitHub flow is not configured — set MCP_GITHUB_RESOURCE and MCP_G
   start.'), input placeholder variant, revoke bar condition extended to include
   `mcp-github` with `revoke()` picking `revokeMcpGithub()` by `flow.id`. The consent card
   is already generic over `interaction.uri` — untouched.
-- **`client/src/paramGlossary.js`** — additive entries for `jsonrpc`, `method`,
-  `params`, `Mcp-Session-Id`, `MCP-Protocol-Version`.
+- **`client/src/paramGlossary.js`** — NOT touched: its `describedParamsFromBody` only
+  parses `x-www-form-urlencoded` bodies, so JSON-RPC entries would be dead code (YAGNI).
+  The T2 form-urlencoded exchange already gets full glossary coverage.
 
 ## Environment variables (already added to `.env`)
 
