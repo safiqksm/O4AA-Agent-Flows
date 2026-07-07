@@ -9,6 +9,7 @@ import { requestMcpGithubToken, mcpInitialize, mcpListTools, mcpCallGetMe, revok
 import { callMcpTool } from '../mcp/inventoryServer.js';
 import { validateAccessToken } from '../util/verifyToken.js';
 import { decodeJwt } from '../util/jwt.js';
+import { DEBUG } from '../util/debugLog.js';
 
 const router = Router();
 
@@ -382,6 +383,8 @@ router.post('/ask', async (req, res) => {
   const toolName = routeTool(question);
   const steps = [];
 
+  if (DEBUG) console.log(`[flow] ▶ /api/ask flow=${flow} question="${question ?? ''}"`);
+
   try {
     let answer;
     let interaction;
@@ -409,6 +412,12 @@ router.post('/ask', async (req, res) => {
       if (r.mcpGithubStsToken) req.session.mcpGithubStsToken = r.mcpGithubStsToken;
     } else {
       answer = await runXaaFlow(req.session.idToken, toolName, steps);
+    }
+    if (DEBUG) {
+      const failed = steps.filter((s) => !s.ok).map((s) => s.id);
+      console.log(
+        `[flow] ◀ flow=${flow} steps=${steps.length}${failed.length ? ` FAILED:[${failed.join(',')}]` : ' all ok'}${interaction ? ' interaction_required' : ''}`
+      );
     }
     res.json({ answer, toolName, flow, steps, interaction });
   } catch (err) {

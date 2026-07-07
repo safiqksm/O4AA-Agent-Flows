@@ -1,6 +1,7 @@
 import { config } from '../config.js';
 import { captureFormPost } from './capture.js';
 import { buildClientAssertion } from './clientAssertion.js';
+import { logStep } from '../util/debugLog.js';
 
 const GRANT_TOKEN_EXCHANGE = 'urn:ietf:params:oauth:grant-type:token-exchange';
 const TOKEN_TYPE_ID_TOKEN = 'urn:ietf:params:oauth:token-type:id_token';
@@ -57,6 +58,7 @@ async function captureMcpPost(step, url, accessToken, sessionId, jsonBody) {
   let responseBody;
   let responseHeaders = {};
   let networkError = null;
+  const t0 = Date.now();
 
   try {
     const res = await fetch(url, { method: 'POST', headers: reqHeaders, body: JSON.stringify(jsonBody) });
@@ -75,6 +77,8 @@ async function captureMcpPost(step, url, accessToken, sessionId, jsonBody) {
   } catch (err) {
     networkError = err.message;
   }
+
+  logStep(step, { method: 'POST', url, params: jsonBody }, { status, ms: Date.now() - t0, networkError, responseBody });
 
   const displayHeaders = maskBearer(reqHeaders);
   // JSON-RPC-level errors arrive as HTTP 200 with an `error` member — still a failure.

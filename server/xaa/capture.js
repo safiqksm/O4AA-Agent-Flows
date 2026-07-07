@@ -1,4 +1,5 @@
 import { decodeJwt } from '../util/jwt.js';
+import { logStep } from '../util/debugLog.js';
 
 // Build a copy/pasteable curl snippet for a form-urlencoded POST.
 function toCurl(url, headers, bodyParams) {
@@ -50,6 +51,7 @@ export async function captureFormPost(step, url, headers, bodyParams) {
   let responseHeaders = {};
   let status = 0;
   let networkError = null;
+  const t0 = Date.now();
 
   try {
     res = await fetch(url, { method: 'POST', headers: reqHeaders, body });
@@ -64,6 +66,8 @@ export async function captureFormPost(step, url, headers, bodyParams) {
   } catch (err) {
     networkError = err.message;
   }
+
+  logStep(step, { method: 'POST', url, params: bodyParams }, { status, ms: Date.now() - t0, networkError, responseBody });
 
   // Decode the token of interest from the response (id-JAG, access token, …)
   let token = null;
@@ -101,6 +105,7 @@ export async function captureGet(step, url, headers) {
   let responseBody;
   let responseHeaders = {};
   let networkError = null;
+  const t0 = Date.now();
 
   try {
     const res = await fetch(url, { method: 'GET', headers: reqHeaders });
@@ -115,6 +120,8 @@ export async function captureGet(step, url, headers) {
   } catch (err) {
     networkError = err.message;
   }
+
+  logStep(step, { method: 'GET', url }, { status, ms: Date.now() - t0, networkError, responseBody });
 
   const displayHeaders = maskAuth(reqHeaders);
   const ok = status >= 200 && status < 300 && !networkError;
@@ -147,6 +154,7 @@ export async function captureJsonPost(step, url, headers, jsonBody) {
   let responseBody;
   let responseHeaders = {};
   let networkError = null;
+  const t0 = Date.now();
 
   try {
     const res = await fetch(url, { method: 'POST', headers: reqHeaders, body: JSON.stringify(jsonBody) });
@@ -161,6 +169,8 @@ export async function captureJsonPost(step, url, headers, jsonBody) {
   } catch (err) {
     networkError = err.message;
   }
+
+  logStep(step, { method: 'POST', url, params: jsonBody }, { status, ms: Date.now() - t0, networkError, responseBody });
 
   const displayHeaders = maskAuth(reqHeaders);
   const ok = status >= 200 && status < 300 && !networkError;
