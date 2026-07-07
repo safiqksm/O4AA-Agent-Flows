@@ -11,7 +11,7 @@ and a copy-paste `curl` snippet.
 
 ## Use cases
 
-The home page offers five flows. All run against **real Okta** (no mock mode).
+The home page offers seven flows. All run against **real Okta** (no mock mode).
 
 | Flow | Steps | What it demonstrates |
 |------|-------|----------------------|
@@ -20,6 +20,8 @@ The home page offers five flows. All run against **real Okta** (no mock mode).
 | **Service Accounts** | T1 login → T2 **service account** → T3 **MCP (Basic)** | Exchange for a service-account username/password, then call the MCP with HTTP Basic auth. |
 | **NHI - Cross-App Access** | T1 **client_credentials** → T2 **id-JAG** → T3 **access token** → T4 **MCP** | A non-human/service identity: a headless app authenticates with `private_key_jwt` (client credentials), then runs the XAA chain — no user involved. |
 | **STS Broker (GitHub)** | T1 login → T2 **brokered token** (consent loop) → T3 **read / create PR** | Exchange for an Okta-brokered GitHub token. If consent is needed Okta returns `interaction_required` → authorize → retry. Then read or create a pull request. Includes a **Revoke** action to re-trigger consent. |
+| **STS Broker (Azure)** | T1 login → T2 **brokered token** (consent loop) → T3 **Microsoft Graph** | Same STS mechanics, but the brokered token targets Microsoft Graph: read your profile (`/me`) or group memberships (`/me/memberOf`). Includes a **Revoke** action. |
+| **MCP Broker (GitHub)** | T1 login → T2 **brokered token** (consent loop) → T3 **MCP initialize** → T4 **tools/list / get_me** | Exchange via an Okta **MCP-server resource connection**, then speak MCP protocol (JSON-RPC over Streamable HTTP) to a GitHub MCP server: list its tools or call `get_me`. Includes a **Revoke** action. |
 
 ### Auth at a glance
 
