@@ -6,15 +6,15 @@ A detailed explanation of how this codebase works: what it does, why each piece 
 
 ## What this project is
 
-This is an **educational demo** — not a production app — that makes Okta's AI-agent token-exchange patterns *visible*. The point is that a user logs in, picks one of six authentication flows, asks a question in a chat UI, and then watches **every individual HTTP call** in the resulting chain rendered as a step card, complete with the raw request, the raw response, any decoded JWT, and a copy-paste `curl` snippet.
+This is an **educational demo** — not a production app — that makes Okta's AI-agent token-exchange patterns *visible*. The point is that a user logs in, picks one of seven authentication flows, asks a question in a chat UI, and then watches **every individual HTTP call** in the resulting chain rendered as a step card, complete with the raw request, the raw response, any decoded JWT, and a copy-paste `curl` snippet.
 
 The goal is to let a developer or solutions engineer read and understand the exact protocol mechanics of each flow without reading RFCs.
 
 ---
 
-## The six flows
+## The seven flows
 
-All six flows end by calling an **inventory MCP tool** (or a GitHub / Microsoft Graph API). The difference is *how the agent authenticates* to reach that tool.
+All seven flows end by calling an **inventory MCP tool** (or a GitHub / Microsoft Graph API / GitHub MCP server). The difference is *how the agent authenticates* to reach that tool.
 
 ### 1. Cross-App Access (XAA) — `flow=xaa`
 
@@ -139,6 +139,28 @@ token is a Microsoft Graph access token used to call `GET /me` ("Get my Azure
 profile") or `GET /me/memberOf` ("List my groups"). Both reads need only the
 delegated `User.Read` scope on the Entra app. Server module:
 `server/xaa/azureStsBroker.js`.
+
+### 7. MCP Broker (GitHub)
+
+`flow=mcp-github` — token-exchange → brokered token → GitHub MCP server (MCP protocol).
+
+- **T2 — MCP Token Exchange**: identical STS mechanics to the GitHub/Azure STS flows
+  (org token endpoint, `requested_token_type=urn:okta:params:oauth:token-type:oauth-sts`),
+  but `resource` is the ORN of the **MCP-server** resource connection on the AI Agent.
+  First run returns `interaction_required` — the same consent loop described in the STS
+  Broker (GitHub) section above.
+- **T3 — MCP Initialize**: the agent starts an MCP session with a JSON-RPC `initialize`
+  request (Streamable HTTP transport). The response carries an `Mcp-Session-Id` header
+  echoed on every subsequent call, and the agent fires the `notifications/initialized`
+  notification.
+- **T4 — List MCP Tools / Call get_me Tool**: `tools/list` returns the server's tool
+  catalog; `tools/call` with `name: "get_me"` returns the GitHub identity behind the
+  brokered token. JSON-RPC errors (HTTP 200 with an `error` member) render as failed steps.
+- **Revoke**: same RFC 7009 revoke (`token_type_hint=oauth_sts`) as the other STS flows —
+  the next ask re-triggers consent.
+
+Server code: `server/xaa/mcpGithubBroker.js` (self-contained, including its own
+MCP-aware capture helper — `capture.js` is untouched).
 
 ---
 

@@ -1,6 +1,6 @@
 # Okta Configuration & Setup Guide
 
-This guide walks through every Okta configuration step required to run the six flows in this demo.
+This guide walks through every Okta configuration step required to run the seven flows in this demo.
 
 **Tenant:** `https://ntrsoiesys.oktapreview.com`  
 **Admin console:** `https://ntrsoiesys-admin.oktapreview.com`
@@ -342,6 +342,51 @@ AZURE_SCOPES=
 | T2 token exchange rejected | **Agent instance read** Graph permission missing on the Entra app (Step A.6), or admin consent not granted |
 | T3 Graph call fails 401 | Brokered token not a Graph token — check the Entra app / connection configuration |
 | T3 `/me/memberOf` fails 403 | `User.Read` delegated permission missing on the Entra app |
+
+---
+
+## GitHub MCP Server flow
+
+This flow exchanges an Okta token for a brokered token via an **MCP-server resource
+connection**, then speaks MCP protocol (JSON-RPC over Streamable HTTP) to the GitHub
+MCP server: initialize, list tools, or call the `get_me` tool.
+
+### Step A — Register the MCP server in Okta
+
+1. In Okta Admin, go to **Directory → MCP Servers → Add MCP server**
+2. Fill in:
+   - **Name:** `GitHub MCP Server`
+   - **Base URL:** your GitHub MCP endpoint (e.g. `https://copilot-api.<your-ghe-host>/mcp`) —
+     it can't be changed later
+3. Add a **client credential set**: the client ID and client secret of the GitHub OAuth
+   app (the MCP server's preregistered confidential OAuth client — Dynamic Client
+   Registration is not supported), plus any scopes
+4. Save — the server shows as **ACTIVE** on the MCP Servers page
+
+### Step B — Add the MCP server as a Resource Connection on the AI Agent
+
+1. Go to **Directory → AI Agents** → open your **XAA AI Agent**
+2. Click the **Resource Connections** tab → **Add resource connection**
+3. Select resource type **MCP server** and pick the server from Step A —
+   the Resource Indicator populates automatically
+4. Click **Add**, then copy the **ORN** shown for this connection → `MCP_GITHUB_RESOURCE`
+
+### Update `.env`:
+
+```env
+MCP_GITHUB_RESOURCE=orn:oktapreview:idp:<org-id>:client-auth-settings:<connection-id>
+MCP_GITHUB_URL=<the base URL from Step A>
+MCP_GITHUB_SCOPES=
+```
+
+### Troubleshooting
+
+| Symptom | Likely cause |
+|---|---|
+| T2 `interaction_required` loops forever | The GitHub OAuth app's callback URL isn't `https://<okta-domain>/oauth2/v1/sts/callback`, or the credential set on the MCP server entry is wrong |
+| T3 initialize returns 401 | The brokered token isn't accepted by the MCP server — check the client credential set in Directory → MCP Servers |
+| T3 initialize returns 404/405 | `MCP_GITHUB_URL` isn't the MCP endpoint (must be the same base URL registered in Okta) |
+| `MCP GitHub flow is not configured` | `MCP_GITHUB_RESOURCE` or `MCP_GITHUB_URL` is blank in `.env` |
 
 ---
 
