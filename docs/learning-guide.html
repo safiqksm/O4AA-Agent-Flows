@@ -1,0 +1,462 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Okta AI-Agent Token Flows — Learning Guide</title>
+<style>
+  :root{
+    --paper:#f6f7f9; --ink:#1b2330; --ink-soft:#4a5568; --line:#dde1e8;
+    --accent:#4653b0; --accent-soft:#eceefb;
+    --panel:#10151d; --panel-ink:#d7dde8; --panel-dim:#8b96a8;
+    --good:#1a7f4e; --warn:#9a6700;
+    --f1:#16c784; --f2:#3b82f6; --f3:#a855f7; --f4:#f59e0b; --f5:#6e40c9; --f6:#0078d4; --f7:#8957e5;
+    --serif: Charter, Georgia, 'Times New Roman', serif;
+    --sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    --mono: 'SF Mono', Menlo, Consolas, monospace;
+  }
+  html{scroll-behavior:smooth}
+  @media (prefers-reduced-motion: reduce){ html{scroll-behavior:auto} }
+  body{background:var(--paper); color:var(--ink); font-family:var(--serif); line-height:1.6; font-size:17px;}
+  .wrap{display:grid; grid-template-columns:230px minmax(0,1fr); gap:40px; max-width:1080px; margin:0 auto; padding:0 24px 96px;}
+  header.site{grid-column:1/-1; padding:44px 0 28px; border-bottom:1px solid var(--line); margin-bottom:8px;}
+  .eyebrow{font-family:var(--sans); font-size:11.5px; font-weight:600; letter-spacing:.14em; text-transform:uppercase; color:var(--accent);}
+  h1{font-family:var(--sans); font-weight:700; font-size:clamp(26px,4vw,36px); line-height:1.15; text-wrap:balance; margin:10px 0 12px; letter-spacing:-.015em;}
+  .sub{color:var(--ink-soft); max-width:62ch; margin:0 0 18px;}
+  .chips{display:flex; flex-wrap:wrap; gap:8px; font-family:var(--sans);}
+  .chip{font-size:12px; font-weight:600; padding:4px 10px; border-radius:3px; color:#fff;}
+  nav.toc{position:sticky; top:24px; align-self:start; font-family:var(--sans); font-size:13.5px;}
+  nav.toc .toc-h{font-size:11px; font-weight:700; letter-spacing:.12em; text-transform:uppercase; color:var(--ink-soft); margin-bottom:10px;}
+  nav.toc a{display:block; color:var(--ink-soft); text-decoration:none; padding:4px 0 4px 12px; border-left:2px solid var(--line); line-height:1.35;}
+  nav.toc a:hover{color:var(--accent); border-left-color:var(--accent);}
+  nav.toc a.flow{padding-left:12px;}
+  nav.toc a:focus-visible{outline:2px solid var(--accent); outline-offset:2px;}
+  main{min-width:0;}
+  main > section{margin:0 0 44px;}
+  h2{font-family:var(--sans); font-weight:700; font-size:22px; letter-spacing:-.01em; margin:0 0 6px; padding-top:18px; text-wrap:balance;}
+  h2 .no{color:var(--accent); font-variant-numeric:tabular-nums; margin-right:8px;}
+  h3{font-family:var(--sans); font-weight:650; font-size:16px; margin:26px 0 8px;}
+  p{max-width:70ch; margin:0 0 14px;}
+  ul,ol{max-width:70ch; margin:0 0 14px; padding-left:22px;}
+  li{margin-bottom:6px;}
+  a{color:var(--accent);}
+  code{font-family:var(--mono); font-size:.84em; background:var(--accent-soft); color:#333e8c; padding:1px 5px; border-radius:3px; white-space:nowrap;}
+  pre{background:var(--panel); color:var(--panel-ink); font-family:var(--mono); font-size:12.5px; line-height:1.5; padding:18px 20px; border-radius:6px; overflow-x:auto; margin:0 0 16px;}
+  pre code{background:none; color:inherit; padding:0; white-space:pre;}
+  pre .c{color:var(--panel-dim);} pre .k{color:#7cc7ff;} pre .s{color:#a8e6a1;} pre .hl{color:#ffd479;}
+  .tablewrap{overflow-x:auto; margin:0 0 16px; border:1px solid var(--line); border-radius:6px; background:#fff;}
+  table{border-collapse:collapse; width:100%; font-family:var(--sans); font-size:13.5px;}
+  th{font-size:11.5px; letter-spacing:.06em; text-transform:uppercase; color:var(--ink-soft); text-align:left; padding:10px 14px; border-bottom:1px solid var(--line); background:#fbfcfd; white-space:nowrap;}
+  td{padding:10px 14px; border-bottom:1px solid var(--line); vertical-align:top; line-height:1.45;}
+  tr:last-child td{border-bottom:none;}
+  td code, .note code{white-space:normal; word-break:break-all;}
+  .note{border-left:3px solid var(--accent); background:var(--accent-soft); padding:12px 16px; border-radius:0 6px 6px 0; margin:0 0 16px; max-width:70ch; font-size:15.5px;}
+  .note.warn{border-left-color:var(--warn); background:#fdf6e3;}
+  details.flow{border:1px solid var(--line); border-radius:8px; background:#fff; margin:0 0 16px; overflow:hidden;}
+  details.flow > summary{cursor:pointer; list-style:none; display:flex; align-items:baseline; gap:12px; padding:16px 18px; font-family:var(--sans); border-left:4px solid var(--fc,var(--accent));}
+  details.flow > summary::-webkit-details-marker{display:none;}
+  details.flow > summary:focus-visible{outline:2px solid var(--accent); outline-offset:-2px;}
+  details.flow > summary .fid{font-family:var(--mono); font-size:11px; font-weight:600; letter-spacing:.08em; color:#fff; background:var(--fc,var(--accent)); padding:3px 8px; border-radius:3px; white-space:nowrap;}
+  details.flow > summary .ft{font-weight:700; font-size:16.5px;}
+  details.flow > summary .fs{color:var(--ink-soft); font-size:13px; margin-left:auto; white-space:nowrap;}
+  details.flow > summary .tw{transition:transform .15s; margin-left:6px; color:var(--ink-soft); font-size:12px;}
+  details.flow[open] > summary .tw{transform:rotate(90deg);}
+  details.flow .body{padding:6px 20px 20px; border-top:1px solid var(--line);}
+  .legend{display:flex; flex-wrap:wrap; gap:6px 14px; font-family:var(--sans); font-size:12.5px; color:var(--ink-soft); margin:-6px 0 14px;}
+  .legend b{color:var(--ink);}
+  footer{grid-column:1/-1; border-top:1px solid var(--line); margin-top:20px; padding-top:18px; font-family:var(--sans); font-size:13px; color:var(--ink-soft);}
+  @media (max-width:820px){ .wrap{grid-template-columns:1fr;} nav.toc{position:static; display:flex; flex-wrap:wrap; gap:2px 14px; border-bottom:1px solid var(--line); padding-bottom:14px;} nav.toc a{border-left:none; padding-left:0;} nav.toc .toc-h{width:100%;} details.flow > summary .fs{display:none;} }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+<header class="site">
+  <div class="eyebrow">Okta · Cross-App Access · MCP · One working demo</div>
+  <h1>Secure AI-Agent Token Flows, End to End</h1>
+  <p class="sub">Every token in the seven-flow demo: where it comes from, exactly what goes over the wire —
+  <code>audience</code>, <code>resource</code>, <code>subject_token</code>, <code>client_assertion</code> — and why each parameter exists.
+  Built from working code against a live Okta preview tenant.</p>
+  <div class="chips">
+    <span class="chip" style="background:var(--f1)">Cross-App Access</span>
+    <span class="chip" style="background:var(--f2)">Secrets</span>
+    <span class="chip" style="background:var(--f3)">Service Accounts</span>
+    <span class="chip" style="background:var(--f4)">NHI · XAA</span>
+    <span class="chip" style="background:var(--f5)">STS · GitHub</span>
+    <span class="chip" style="background:var(--f6)">STS · Azure</span>
+    <span class="chip" style="background:var(--f7)">MCP · GitHub</span>
+  </div>
+</header>
+
+<nav class="toc" aria-label="Contents">
+  <div class="toc-h">Contents</div>
+  <a href="#actors">1 · The cast of actors</a>
+  <a href="#patterns">2 · The four access patterns</a>
+  <a href="#tokens">3 · Token taxonomy</a>
+  <a href="#aud">4 · aud vs audience vs resource</a>
+  <a href="#assertion">5 · client_assertion anatomy</a>
+  <a href="#flows">6 · The seven flows</a>
+  <a class="flow" href="#f-xaa" data-open="f-xaa" style="color:var(--f1)">— Cross-App Access</a>
+  <a class="flow" href="#f-vault" data-open="f-vault" style="color:var(--f2)">— Secrets / Service Accounts</a>
+  <a class="flow" href="#f-nhi" data-open="f-nhi" style="color:var(--f4)">— NHI Cross-App Access</a>
+  <a class="flow" href="#f-sts" data-open="f-sts" style="color:var(--f5)">— STS Broker (GitHub)</a>
+  <a class="flow" href="#f-azure" data-open="f-azure" style="color:var(--f6)">— STS Broker (Azure)</a>
+  <a class="flow" href="#f-mcp" data-open="f-mcp" style="color:var(--f7)">— MCP Broker (GitHub)</a>
+  <a href="#consent">7 · The consent loop</a>
+  <a href="#revoke">8 · Revocation</a>
+  <a href="#proof">9 · Proving the managed connection</a>
+  <a href="#validate">10 · Validation at the resource</a>
+  <a href="#principles">11 · Security principles</a>
+  <a href="#warstories">12 · War stories</a>
+  <a href="#reading">13 · Specs &amp; reading</a>
+</nav>
+
+<main>
+
+<section id="actors">
+  <h2><span class="no">1</span>The cast of actors</h2>
+  <p>Every flow involves a subset of these parties. Real identifiers from the demo tenant are shown so you can correlate with the running app and the Okta System Log.</p>
+  <div class="tablewrap"><table>
+    <tr><th>Actor</th><th>Who it is</th><th>In this demo</th></tr>
+    <tr><td><b>User</b></td><td>The human whose identity is delegated</td><td>you, via Okta SSO</td></tr>
+    <tr><td><b>Chat App</b></td><td>OIDC web app the user logs into (T1)</td><td>client id <code>0oa…</code>, client-secret auth</td></tr>
+    <tr><td><b>AI Agent</b></td><td>A dedicated Okta identity type — <em>not</em> a normal OAuth app. Registered under <b>AI Agents</b>; gets a <code>wlp…</code> id and an RSA key pair</td><td><code>wlp10tv4ror3uKEbH1d8</code>, key <code>keys/agent.pem</code></td></tr>
+    <tr><td><b>Org Authorization Server</b></td><td>Okta's org-level AS (the IdP). Issues id_tokens, id-JAGs, STS-brokered tokens, vaulted credentials</td><td><code>https://ntrsoiesys.oktapreview.com</code> → <code>/oauth2/v1/token</code></td></tr>
+    <tr><td><b>Resource Authorization Server</b></td><td>A <em>custom</em> Okta AS protecting one API; issues the final access token</td><td><code>…/oauth2/aus10ta4mhvArN8jE1d8</code> → <code>…/v1/token</code>, JWKS <code>…/v1/keys</code></td></tr>
+    <tr><td><b>Resource / MCP server</b></td><td>What the agent ultimately calls</td><td>Inventory MCP · GitHub REST · Microsoft Graph · GitHub MCP server</td></tr>
+    <tr><td><b>Service App</b> (NHI)</td><td>Headless machine identity with its own key</td><td>API Services app <code>0oa…</code>, key <code>keys/service.pem</code></td></tr>
+  </table></div>
+  <div class="note"><b>Mental model:</b> Okta sits between the agent and every resource. The agent holds exactly one private key — everything else is short-lived proof of <em>who is asking</em>, exchanged for short-lived access to <em>one resource</em>.</div>
+</section>
+
+<section id="patterns">
+  <h2><span class="no">2</span>The four access patterns</h2>
+  <p>Terminology follows the Okta ecosystem (see <a href="https://iam.fabiograsso.net/blog/okta-ai-access-patterns/">Grasso, Access Patterns</a>). The seven demo cards implement four patterns:</p>
+  <div class="tablewrap"><table>
+    <tr><th>Pattern</th><th>Demo card(s)</th><th>Mechanics</th><th>User context</th><th>Revocation</th></tr>
+    <tr><td><b>XAA</b> — Cross-App Access</td><td>Cross-App Access, NHI</td><td>id-JAG (RFC 8693) → jwt-bearer (RFC 7523) → access token carrying user + agent</td><td>✓ full</td><td>per-user, per-agent</td></tr>
+    <tr><td><b>STS</b> — Secure Token Service</td><td>STS GitHub, STS Azure, MCP GitHub</td><td><code>requested_token_type=oauth-sts</code>; Okta brokers a third-party OAuth token behind user consent</td><td>✓ via consent</td><td>per managed connection</td></tr>
+    <tr><td><b>PSK</b> — Pre-Shared Key</td><td>Secrets</td><td>id_token → vaulted static secret (Okta PAM)</td><td>✗ agent-level</td><td>rotate / remove secret</td></tr>
+    <tr><td><b>Service Account</b></td><td>Service Accounts</td><td>id_token → vaulted username/password</td><td>✗ shared identity</td><td>all-or-nothing</td></tr>
+  </table></div>
+  <p><b>Strategic ordering:</b> XAA is the destination — it's the model the MCP spec adopted for enterprise auth. STS bridges third-party SaaS that speaks OAuth but not id-JAG. PSK carries legacy API-key systems. Service accounts exist to be deprecated: every one is an identity-collapse and compliance gap.</p>
+</section>
+
+<section id="tokens">
+  <h2><span class="no">3</span>Token taxonomy</h2>
+  <p>Seven token-like things move through these flows. Confusing them is the #1 source of bugs.</p>
+  <div class="tablewrap"><table>
+    <tr><th>Token</th><th>Issued by</th><th>Presented to</th><th>Lifetime</th><th>Format</th></tr>
+    <tr><td><b>id_token</b></td><td>Org AS at login (T1)</td><td>Org AS again, as <code>subject_token</code></td><td>~1 h</td><td>JWT · <code>aud</code> = Chat App</td></tr>
+    <tr><td><b>client_assertion</b></td><td><em>the agent itself</em> (self-signed)</td><td>any token endpoint, to authenticate the client</td><td>minutes</td><td>JWT · <code>iss</code>=<code>sub</code>= client id, <code>aud</code> = the endpoint</td></tr>
+    <tr><td><b>id-JAG</b></td><td>Org AS (T2, XAA)</td><td>Resource AS as jwt-bearer <code>assertion</code></td><td>~5 min class</td><td>JWT · header <code>typ: oauth-id-jag+jwt</code></td></tr>
+    <tr><td><b>Access token</b></td><td>Resource AS (T3)</td><td>the protected resource (T4)</td><td>~1 h</td><td>JWT · validated via JWKS</td></tr>
+    <tr><td><b>STS brokered token</b></td><td>Third party, vaulted &amp; released by Okta</td><td>the third-party API / MCP server</td><td>provider-defined</td><td>usually opaque (<code>gho_…</code>)</td></tr>
+    <tr><td><b>Vaulted secret / service account</b></td><td>Okta PAM vault</td><td>legacy resource (HTTP Basic)</td><td>static until rotated</td><td>key/value</td></tr>
+    <tr><td><b>Service token</b> (NHI T1)</td><td>custom AS, client_credentials</td><td>Org AS as <code>subject_token</code></td><td>~1 h</td><td>JWT · <code>sub</code> = the service app</td></tr>
+  </table></div>
+</section>
+
+<section id="aud">
+  <h2><span class="no">4</span><code style="font-size:.8em">aud</code> vs <code style="font-size:.8em">audience</code> vs <code style="font-size:.8em">resource</code> vs issuer</h2>
+  <p>Four things that all sound like "who is this for." Getting them right is most of the battle:</p>
+<pre><code><span class="k">"aud" CLAIM</span> (inside a JWT) — points ONE HOP DOWNSTREAM from whoever signed it:
+   client_assertion  →  aud = the TOKEN ENDPOINT you are POSTing to        (RFC 7523)
+   id-JAG            →  aud = the RESOURCE AUTHORIZATION SERVER's identifier
+   access token      →  aud = the audience value configured on that AS
+
+<span class="k">"audience" BODY PARAM</span> (RFC 8693) — in the T2 exchange REQUEST: names the AS that
+   must ACCEPT the id-JAG.  Here: the resource AS's own issuer URL
+   <span class="s">https://ntrsoiesys.oktapreview.com/oauth2/aus10ta4mhvArN8jE1d8</span>
+   <span class="hl">NOT api://something — a real bug we hit.</span>
+
+<span class="k">"resource" BODY PARAM</span> (RFC 8707) — names the specific protected RESOURCE.
+   In STS/secrets flows it's an Okta ORN selecting WHICH resource connection:
+   <span class="s">orn:oktapreview:idp:&lt;org-id&gt;:client-auth-settings:&lt;connection-id&gt;</span>
+
+<span class="k">ISSUER ("iss")</span> — who minted the token. Validators pin it exactly and fetch
+   that issuer's JWKS to verify the signature.</code></pre>
+  <div class="note"><b>Rule of thumb:</b> <code>aud</code> inside a JWT points one hop downstream from the signer; <code>audience</code> and <code>resource</code> in a request body tell the AS what to mint.</div>
+</section>
+
+<section id="assertion">
+  <h2><span class="no">5</span>Anatomy of a <code style="font-size:.8em">client_assertion</code></h2>
+  <p>Every privileged call authenticates with <b>private_key_jwt</b> (RFC 7523) — the agent never holds a client secret. It signs this JWT itself:</p>
+<pre><code>Header:  { <span class="k">"alg"</span>: <span class="s">"RS256"</span>, <span class="k">"kid"</span>: <span class="s">"&lt;AGENT_KID — must match the JWK registered in Okta&gt;"</span> }
+Payload: {
+  <span class="k">"iss"</span>: <span class="s">"wlp10tv4ror3uKEbH1d8"</span>,   <span class="c">// the agent IS the issuer…</span>
+  <span class="k">"sub"</span>: <span class="s">"wlp10tv4ror3uKEbH1d8"</span>,   <span class="c">// …and the subject: self-attestation</span>
+  <span class="k">"aud"</span>: <span class="s">"https://ntrsoiesys.oktapreview.com/oauth2/v1/token"</span>,  <span class="c">// the EXACT endpoint</span>
+  <span class="k">"iat"</span>: 1751800000, <span class="k">"exp"</span>: 1751800300,   <span class="c">// short — minutes, not hours</span>
+  <span class="k">"jti"</span>: <span class="s">"random-unique-id"</span>            <span class="c">// replay protection</span>
+}
+<span class="c">// rides in the POST body:</span>
+client_assertion_type = urn:ietf:params:oauth:client-assertion-type:jwt-bearer
+client_assertion      = &lt;the signed JWT&gt;</code></pre>
+  <p>Okta verifies it against the <b>public JWK registered on the agent</b>. Three real failure modes: no JWK registered (<code>invalid_client: no JWKSet</code>), <code>kid</code> mismatch, and wrong <code>aud</code> — which must equal the endpoint you call (token endpoint for exchanges, <b>revoke endpoint for revocations</b>).</p>
+</section>
+
+<section id="flows">
+  <h2><span class="no">6</span>The seven flows</h2>
+  <p class="legend"><b>Legend:</b> T1 login · T2 exchange at the IdP · T3 redeem / call provider · T4 call the resource · R1 revoke. Click a flow to expand.</p>
+
+  <details class="flow" id="f-xaa" style="--fc:var(--f1)" open>
+    <summary><span class="fid">flow=xaa</span><span class="ft">Cross-App Access (XAA)</span><span class="fs">id_token → id-JAG → access token → MCP</span><span class="tw">▶</span></summary>
+    <div class="body">
+<pre><code> User        Chat App(0oa…)      Org AS (IdP)          Resource AS(aus10…)      Inventory MCP
+  │  T1 OIDC     │                    │                        │                      │
+  │─────────────▶│── auth code ──────▶│                        │                      │
+  │              │◀─ ─ id_token ─ ─ ─ │                        │                      │
+  │              │                    │                        │                      │
+  │        AGENT (wlp…) takes over    │                        │                      │
+  │              │ T2 token-exchange: │                        │                      │
+  │              │ subject_token=id_token + client_assertion   │                      │
+  │              │───────────────────▶│                        │                      │
+  │              │◀─ ─ id-JAG ─ ─ ─ ─ │                        │                      │
+  │              │ T3 jwt-bearer: assertion=id-JAG + client_assertion                 │
+  │              │────────────────────────────────────────────▶│                      │
+  │              │◀─ ─ access token (sub=user, agent bound) ─ ─│                      │
+  │              │ T4  Authorization: Bearer &lt;access token&gt;    │                      │
+  │              │────────────────────────────────────────────────────────────────────▶
+  │              │        MCP validates: JWKS sig + iss + exp + scope inventory:read  │
+  │◀─ answer ─ ─ │◀─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ │</code></pre>
+      <h3>T2 — the id-JAG exchange, field by field</h3>
+      <p><code>POST https://ntrsoiesys.oktapreview.com/oauth2/v1/token</code> (form-urlencoded):</p>
+      <div class="tablewrap"><table>
+        <tr><th>Param</th><th>Value</th><th>Why</th></tr>
+        <tr><td><code>grant_type</code></td><td><code>urn:ietf:params:oauth:grant-type:token-exchange</code></td><td>RFC 8693 — trade one token for another</td></tr>
+        <tr><td><code>subject_token</code></td><td>the user's <b>id_token</b></td><td>proof of <em>whose</em> delegation this is</td></tr>
+        <tr><td><code>subject_token_type</code></td><td><code>…:token-type:id_token</code></td><td>the org endpoint accepts only <code>id_token</code> / <code>saml2</code> (proved the hard way — see War stories)</td></tr>
+        <tr><td><code>requested_token_type</code></td><td><code>…:token-type:id-jag</code></td><td>"give me an Identity Assertion Authorization Grant"</td></tr>
+        <tr><td><code>audience</code></td><td><code>https://…/oauth2/aus10ta4mhvArN8jE1d8</code></td><td>the AS that must <em>accept</em> the id-JAG</td></tr>
+        <tr><td><code>scope</code></td><td><code>inventory:read</code></td><td>scope narrowing at request time</td></tr>
+        <tr><td><code>client_assertion(_type)</code></td><td>agent private_key_jwt, <code>aud</code> = this endpoint</td><td>authenticates the <b>agent</b></td></tr>
+      </table></div>
+      <p>Okta checks policy — <em>is this agent allowed token-exchange toward this audience, with a Resource Connection?</em> — then mints:</p>
+<pre><code>Header:  { <span class="k">"typ"</span>: <span class="s">"oauth-id-jag+jwt"</span>, <span class="k">"alg"</span>: <span class="s">"RS256"</span> }
+Payload: {
+  <span class="k">"iss"</span>: <span class="s">"https://ntrsoiesys.oktapreview.com"</span>,     <span class="c">// org AS minted it</span>
+  <span class="k">"sub"</span>: <span class="s">"&lt;user id&gt;"</span>,                              <span class="c">// the HUMAN</span>
+  <span class="k">"aud"</span>: <span class="s">"https://…/oauth2/aus10ta4mhvArN8jE1d8"</span>,  <span class="c">// the resource AS</span>
+  <span class="k">"client_id"</span>: <span class="s">"wlp10tv4ror3uKEbH1d8"</span>,             <span class="c">// the AGENT</span>
+  <span class="k">"scope"</span>: <span class="s">"inventory:read"</span>, <span class="k">"jti"</span>, <span class="k">"iat"</span>, <span class="k">"exp"</span>   <span class="c">// short-lived</span>
+}</code></pre>
+      <div class="note"><b>Reading trap:</b> the response carries the id-JAG in <code>access_token</code> with <code>token_type: N_A</code>. An id-JAG is <em>not</em> an access token — you can't call an API with it; redeem it at the AS named in <code>aud</code>.</div>
+      <h3>T3 — redeeming the id-JAG (jwt-bearer)</h3>
+      <p><code>POST https://…/aus10ta4mhvArN8jE1d8/v1/token</code> with <code>grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer</code>, <code>assertion=&lt;id-JAG&gt;</code>, plus a fresh agent <code>client_assertion</code> whose <code>aud</code> is <em>this</em> endpoint. The resource AS validates the id-JAG's signature against the <b>org AS JWKS</b>, checks <code>aud</code> == itself, applies its access policy, and mints the final access token (<code>iss</code> = resource AS, <code>sub</code> = user, agent identity carried, <code>scp: ["inventory:read"]</code>).</p>
+    </div>
+  </details>
+
+  <details class="flow" id="f-vault" style="--fc:var(--f2)">
+    <summary><span class="fid">flow=secrets · service-account</span><span class="ft">Secrets / Service Accounts</span><span class="fs">id_token → vaulted credentials → Basic auth</span><span class="tw">▶</span></summary>
+    <div class="body">
+<pre><code> User ──T1──▶ id_token
+ Agent ──T2──▶ POST /oauth2/v1/token                       <span class="c">(ORG endpoint)</span>
+                 grant_type           = …token-exchange
+                 subject_token        = id_token            <span class="c">// user context for the AUDIT LOG,</span>
+                 subject_token_type   = …:id_token          <span class="c">// not inside the credential itself</span>
+                 requested_token_type = <span class="hl">urn:okta:params:oauth:token-type:vaulted-secret</span>
+                                        <span class="c">— or —</span> <span class="hl">…:service-account</span>
+                 resource             = orn:okta:pam:&lt;tenant&gt;:secrets:&lt;secret-id&gt;
+                 client_assertion     = agent private_key_jwt
+              ◀── { vaulted_secret: {…} } / { service_account: { username, password } }
+ Agent ──T3──▶ resource with  Authorization: Basic base64(user:pass)</code></pre>
+      <p>Note what's <em>lost</em> versus XAA: the released credential carries <b>no user identity</b> — the resource sees only "the service account did it." Okta logs the release per-user, but downstream attribution collapses. Use these to bring legacy systems under management, then migrate.</p>
+    </div>
+  </details>
+
+  <details class="flow" id="f-nhi" style="--fc:var(--f4)">
+    <summary><span class="fid">flow=client-credentials</span><span class="ft">NHI · Cross-App Access</span><span class="fs">client_credentials → id-JAG → access token</span><span class="tw">▶</span></summary>
+    <div class="body">
+<pre><code> Service App ──T1──▶ POST &lt;SERVICE_ISSUER&gt;/v1/token        <span class="c">(custom AS, e.g. aus10vq5m…)</span>
+                       grant_type       = client_credentials
+                       scope            = agent.invoke      <span class="c">(custom scope on that AS)</span>
+                       client_assertion = <span class="hl">SERVICE key</span> (iss=sub=SERVICE_CLIENT_ID)
+                     ◀── service access token (sub = the service app itself)
+
+ Agent ──T2──▶ POST /oauth2/v1/token                        <span class="c">(org endpoint)</span>
+                 subject_token        = the SERVICE TOKEN   <span class="c">// the non-human "subject"</span>
+                 subject_token_type   = …:access_token  <span class="hl">⚠️</span>
+                 requested_token_type = …:id-jag
+                 client_assertion     = <span class="hl">AGENT key</span>
+ Agent ──T3──▶ jwt-bearer at resource AS   ──T4──▶ MCP</code></pre>
+      <div class="note warn"><b>Platform reality (July 2026):</b> Okta's org id-JAG exchange accepts only <code>id_token</code>/<code>saml2</code> subjects. An access-token subject returns <code>invalid_request: 'subject_token_type' is invalid or not supported.</code> The request is correct per RFC 8693 — the platform doesn't yet accept a workload as the subject. Okta's EA notes point toward service-app-without-user-context support; the demo degrades gracefully at T2 meanwhile.</div>
+      <p>Two different keys authenticate here: T1 is signed by the <b>service</b> key (proves the workload), T2/T3 by the <b>agent</b> key (proves the agent). Keep them distinct.</p>
+    </div>
+  </details>
+
+  <details class="flow" id="f-sts" style="--fc:var(--f5)">
+    <summary><span class="fid">flow=sts-github</span><span class="ft">STS Broker (GitHub)</span><span class="fs">id_token → brokered GitHub token → REST</span><span class="tw">▶</span></summary>
+    <div class="body">
+      <p>The bridge pattern for SaaS that speaks OAuth but not id-JAG. Okta acts as a <b>Secure Token Service</b>: it runs the provider's OAuth dance once (with user consent), vaults the provider token, and re-releases it on demand.</p>
+<pre><code> User ──T1──▶ id_token
+ Agent ──T2──▶ POST /oauth2/v1/token                        <span class="c">(org endpoint)</span>
+                 requested_token_type = <span class="hl">urn:okta:params:oauth:token-type:oauth-sts</span>
+                 subject_token(_type) = id_token
+                 resource             = orn:oktapreview:idp:&lt;org&gt;:client-auth-settings:&lt;conn&gt;
+                 client_assertion     = agent key
+
+     FIRST RUN ──▶ <span class="hl">HTTP 400 { "error": "interaction_required", "interaction_uri": "…" }</span>
+     user authorizes ──▶ Okta runs GitHub's OAuth code flow
+                          <span class="c">(callback: https://&lt;okta&gt;/oauth2/v1/sts/callback)</span>
+     agent RETRIES THE IDENTICAL REQUEST ──▶ HTTP 200 { access_token: <span class="s">"gho_…"</span> }
+
+ Agent ──T3──▶ GET/POST https://api.github.com/repos/&lt;owner&gt;/&lt;repo&gt;/pulls   Bearer gho_…
+ Agent ──R1──▶ POST /oauth2/v1/revoke  token_type_hint=oauth_sts   <span class="c">(re-arms consent)</span></code></pre>
+      <p>The brokered <code>gho_…</code> token is <b>GitHub's</b>, not Okta's — opaque, provider lifetime, scopes governed by the Resource Connection. The agent never sees the GitHub client secret; that lives in the OIN app's <b>Sign-On → Client authentication settings</b>.</p>
+    </div>
+  </details>
+
+  <details class="flow" id="f-azure" style="--fc:var(--f6)">
+    <summary><span class="fid">flow=sts-azure</span><span class="ft">STS Broker (Azure)</span><span class="fs">id_token → brokered Graph token → /me</span><span class="tw">▶</span></summary>
+    <div class="body">
+      <p>Mechanically <b>identical</b> to STS GitHub — same endpoint, same <code>oauth-sts</code> request, same consent loop and revoke — with two substitutions: <code>resource</code> = the ORN of a Microsoft resource connection, and T3 targets Microsoft Graph (<code>GET /v1.0/me</code>, <code>GET /v1.0/me/memberOf</code>; delegated <code>User.Read</code> covers both).</p>
+      <div class="note warn"><b>Status (July 2026): blocked upstream.</b> STS resource connections need an <b>XAA-enabled OIN integration</b> (one whose app page has a <em>Client authentication settings</em> section) — and no Microsoft/Entra entry qualifies for Graph brokering yet. The card answers "STS Azure flow is not configured" until <code>AZURE_RESOURCE</code> can be populated. General lesson: <b>STS coverage is bounded by the IdP's partner catalog</b> — check it before promising an integration.</div>
+    </div>
+  </details>
+
+  <details class="flow" id="f-mcp" style="--fc:var(--f7)">
+    <summary><span class="fid">flow=mcp-github</span><span class="ft">MCP Broker (GitHub)</span><span class="fs">id_token → brokered token → MCP protocol</span><span class="tw">▶</span></summary>
+    <div class="body">
+      <p>Same STS trust chain as GitHub above; the <em>target</em> changes from a REST API to an <b>MCP server</b>, and Okta registration moves to <b>Directory → MCP Servers</b> (base URL + credential set), connected to the agent as Resource Connection type <b>MCP server</b>.</p>
+<pre><code> User ──T1──▶ id_token
+ Agent ──T2──▶ org /oauth2/v1/token, requested_token_type=oauth-sts,
+               resource=&lt;ORN of the MCP-server connection&gt;      <span class="c">(+ consent loop)</span>
+             ◀── brokered GitHub token
+
+ Agent ──T3──▶ POST https://api.githubcopilot.com/mcp/
+                 Authorization: Bearer &lt;brokered token&gt;
+                 Accept: application/json, text/event-stream
+                 MCP-Protocol-Version: 2025-06-18
+                 { <span class="k">"jsonrpc"</span>:<span class="s">"2.0"</span>, <span class="k">"id"</span>:1, <span class="k">"method"</span>:<span class="s">"initialize"</span>,
+                   <span class="k">"params"</span>:{ <span class="k">"protocolVersion"</span>:<span class="s">"2025-06-18"</span>, <span class="k">"clientInfo"</span>:{…} } }
+             ◀── result { serverInfo… } + header <span class="hl">Mcp-Session-Id: &lt;sid&gt;</span>
+               <span class="c">(agent then fires notifications/initialized)</span>
+
+ Agent ──T4──▶ same URL, echoing Mcp-Session-Id
+                 { <span class="k">"method"</span>:<span class="s">"tools/list"</span> }                        → tool catalog
+                 { <span class="k">"method"</span>:<span class="s">"tools/call"</span>,
+                   <span class="k">"params"</span>:{ <span class="k">"name"</span>:<span class="s">"get_me"</span>, <span class="k">"arguments"</span>:{} } } → who the token belongs to</code></pre>
+      <h3>MCP mechanics worth knowing</h3>
+      <ul>
+        <li><b>Responses may arrive SSE-framed</b> (<code>Content-Type: text/event-stream</code>) — the JSON-RPC reply is the last <code>data:</code> line.</li>
+        <li><b>JSON-RPC errors ride on HTTP 200</b> — check for an <code>error</code> member; HTTP status alone lies.</li>
+        <li><b><code>Mcp-Session-Id</code></b> from <code>initialize</code> must be echoed on every later call.</li>
+      </ul>
+      <h3>Why this flow matters — REST vs MCP, same identity chain</h3>
+      <div class="tablewrap"><table>
+        <tr><th></th><th>STS Broker (REST)</th><th>MCP Broker</th></tr>
+        <tr><td>Agent's knowledge</td><td>endpoints hardcoded by a developer</td><td>tools <b>discovered at runtime</b> via <code>tools/list</code></td></tr>
+        <tr><td>Adding a capability</td><td>code change</td><td>server publishes a new tool</td></tr>
+        <tr><td>Protocol</td><td>HTTP verbs + provider JSON</td><td>uniform JSON-RPC (<code>initialize</code> / <code>tools/*</code>)</td></tr>
+        <tr><td>Fit for LLM agents</td><td>translation layer required</td><td>agent-native interface</td></tr>
+      </table></div>
+      <p>Okta's STS layer literally can't tell the difference — both connections produce <code>client-auth-settings:rsc…</code> ORNs. <b>Identity is orthogonal to protocol</b>: a resource can move from REST to MCP without touching the trust chain.</p>
+    </div>
+  </details>
+</section>
+
+<section id="consent">
+  <h2><span class="no">7</span>The consent loop (<code style="font-size:.75em">interaction_required</code>)</h2>
+  <ol>
+    <li><b>T2 first attempt</b> → <code>HTTP 400 {"error":"interaction_required","interaction_uri":"…"}</code>. Okta has no vaulted provider token for this user × connection yet.</li>
+    <li>The UI shows <b>Authorize connection ↗</b> (opens <code>interaction_uri</code>) and <b>Retry</b>.</li>
+    <li>On the consent page Okta runs the provider's authorization-code flow — the provider redirects back to <code>https://&lt;okta-domain&gt;/oauth2/v1/sts/callback</code> (this exact URL must be registered on the provider OAuth app). Okta vaults the provider token <b>server-side</b>.</li>
+    <li>The agent <b>retries the byte-identical request</b> → <code>HTTP 200</code>. No new parameter, no code handed to the agent — the state change happened entirely inside Okta.</li>
+  </ol>
+  <div class="note"><b>Security property:</b> the agent never participates in the provider's OAuth dance and never sees the provider client secret or refresh token. Consent is per user × per connection, auditable, and revocable.</div>
+</section>
+
+<section id="revoke">
+  <h2><span class="no">8</span>Revocation (RFC 7009)</h2>
+<pre><code>POST https://&lt;org&gt;/oauth2/v1/revoke
+  token                 = &lt;the brokered access token&gt;
+  token_type_hint       = oauth_sts
+  client_assertion_type = urn:ietf:params:oauth:client-assertion-type:jwt-bearer
+  client_assertion      = agent key — <span class="hl">aud = the REVOKE endpoint, not the token endpoint!</span></code></pre>
+  <p>Revoking an STS token deletes Okta's vaulted grant → the <b>next T2 returns <code>interaction_required</code> again</b>. That's revocation precision: kill one user's one connection without touching anything else. XAA needs no equivalent — id-JAGs and access tokens simply expire in minutes; revoke by disabling the agent or its resource connection.</p>
+</section>
+
+<section id="proof">
+  <h2><span class="no">9</span>Proving the managed connection</h2>
+  <p>"How do we know the agent isn't just using a hidden GitHub token?" — the question every security review asks about the broker flows. Six pieces of evidence; for a live demo run <b>2 → 1 → 3 → 5</b> (about two minutes).</p>
+  <ol>
+    <li><b>The T2 request names the connection on the wire.</b> The step card's Request tab shows <code>resource=orn:…:client-auth-settings:&lt;connection-id&gt;</code> — the exact ORN on the AI Agent's Resource Connections tab — sent to <em>Okta's</em> token endpoint, authenticated only by the agent's <code>client_assertion</code>.</li>
+    <li><b>The codebase holds no provider credential.</b> <code>grep -ri "gho_\|ghp_\|GITHUB_TOKEN" server/ .env</code> → nothing. The only GitHub secret is the OAuth app's ID/secret, stored inside Okta where the agent cannot read it. If the agent still reaches the resource, the token <em>must</em> have come from Okta.</li>
+    <li><b>The revoke test (strongest live proof).</b> Revoke, re-run → <code>interaction_required</code>. Nothing changed locally or at the provider; only Okta's vaulted grant was deleted, and access died instantly.</li>
+    <li><b>The kill switch.</b> Deactivate the Resource Connection (or credential set) in Okta Admin → the byte-identical request fails, code and keys untouched. Re-enable → works. IT-controlled, per-connection revocation.</li>
+    <li><b>The Okta System Log.</b> Reports → System Log, filter <code>client.id eq "&lt;wlp… agent id&gt;"</code>: every grant shows <b>actor = agent, subject = user, target = the resource connection</b>, timestamped per run — compliance-grade attribution.</li>
+    <li><b>The provider agrees.</b> GitHub → Settings → Applications → Authorized OAuth Apps shows the grant created at the consent click, and <code>get_me</code> returns <em>that user's</em> identity — the token carries the consenting user's delegation, not a bot account.</li>
+  </ol>
+</section>
+
+<section id="validate">
+  <h2><span class="no">10</span>Validation at the resource (T4)</h2>
+  <p>The Inventory MCP shows the non-negotiable checklist every resource must run (<code>server/util/verifyToken.js</code>):</p>
+  <ol>
+    <li>Fetch JWKS from the <b>expected issuer's</b> <code>jwks_uri</code> and verify the <b>signature</b>.</li>
+    <li>Pin <code>iss</code> — exact string match against the resource AS.</li>
+    <li>Check <code>exp</code> (with reasonable clock skew).</li>
+    <li>Enforce <b>scopes</b>: <code>scp</code> must contain <code>inventory:read</code> → else <code>403 insufficient_scope</code>.</li>
+    <li>Signature / issuer / expiry failure → <code>401 invalid_token</code>.</li>
+  </ol>
+  <div class="note"><b>Decode ≠ verify.</b> The client-side JWT viewer in the demo deliberately does no signature check — display only. Never authorize off an unverified decode.</div>
+</section>
+
+<section id="principles">
+  <h2><span class="no">11</span>Security principles for agent builders</h2>
+  <ol>
+    <li><b>No static secrets on the agent.</b> One RSA private key; everything else is minted per-request and short-lived.</li>
+    <li><b>Identity chain, not identity collapse.</b> XAA carries user and agent at every hop → per-user audit, surgical revocation. Every step toward service-account sharing loses attribution.</li>
+    <li><b>Scope narrowing at every exchange.</b> Effective access = agent capabilities ∩ user entitlements ∩ requested scope.</li>
+    <li><b>Short lifetimes limit blast radius.</b> Assertions in minutes, access tokens ≤ 1 h, id-JAGs single-purpose.</li>
+    <li><b><code>aud</code> pinning everywhere.</b> A token replayed anywhere but its intended endpoint fails.</li>
+    <li><b>The IdP is the policy chokepoint.</b> Resource Connections + access policies + the consent vault control which agent reaches which resource as which user — no agent code changes.</li>
+    <li><b>Resources verify, never trust.</b> JWKS + iss + exp + scope at every resource; HTTP success ≠ protocol success (MCP's error-on-200).</li>
+    <li><b>Choose the strongest pattern the resource supports:</b> XAA &gt; STS &gt; PSK &gt; Service Account.</li>
+  </ol>
+</section>
+
+<section id="warstories">
+  <h2><span class="no">12</span>War stories — real failures, real lessons</h2>
+  <div class="tablewrap"><table>
+    <tr><th>Symptom</th><th>Root cause</th><th>Lesson</th></tr>
+    <tr><td><code>invalid_client: The client does not have a JWKSet configured</code></td><td>no public key registered on the service app; <code>SERVICE_KID</code> also didn't match the key on disk</td><td>the JWK in Okta and the <code>kid</code> in your assertion header must both match the private key you sign with</td></tr>
+    <tr><td><code>'subject_token_type' is invalid or not supported</code></td><td>org id-JAG exchange accepts only <code>id_token</code>/<code>saml2</code> subjects today</td><td>RFC 8693 defines more than a platform implements — verify supported subject types before designing an NHI flow</td></tr>
+    <tr><td><code>The redirect_uri is not associated with this application</code></td><td>provider OAuth app's callback ≠ <code>https://&lt;okta&gt;/oauth2/v1/sts/callback</code></td><td>the STS callback is Okta's URL registered on the <em>provider's</em> app — one exact string</td></tr>
+    <tr><td>MCP T3 <code>network_error: fetch failed</code></td><td>base URL was <code>copilot-api.octocorp.ghe.com</code> — GitHub's <em>docs placeholder</em> (NXDOMAIN)</td><td>probe endpoints with curl first; an unauthenticated 401 is <em>good news</em></td></tr>
+    <tr><td>Azure setup: "no option for client secret"</td><td>no XAA-enabled Microsoft OIN integration exists yet</td><td>STS reach = the IdP's partner catalog; check before committing</td></tr>
+    <tr><td>Exchange worked, revoke failed</td><td>revoke assertion's <code>aud</code> must be the <b>revoke</b> endpoint</td><td>every endpoint you authenticate to is its own audience</td></tr>
+    <tr><td><code>SERVICE_SCOPES=agent.invoke - NHI - …</code></td><td>scope param is space-separated; label text became bogus scopes</td><td>env values go over the wire verbatim — keep labels in comments</td></tr>
+  </table></div>
+</section>
+
+<section id="reading">
+  <h2><span class="no">13</span>Specs &amp; further reading</h2>
+  <ul>
+    <li><b>RFC 8693</b> — OAuth 2.0 Token Exchange (<code>subject_token</code>, <code>requested_token_type</code>, <code>act</code> claim) · <b>RFC 7523</b> — JWT client auth &amp; jwt-bearer · <b>RFC 7009</b> — Revocation · <b>RFC 8707</b> — Resource Indicators</li>
+    <li><b>id-JAG</b> — Identity Assertion Authorization Grant (IETF draft implemented by Okta XAA)</li>
+    <li>Okta: <a href="https://developer.okta.com/docs/guides/ai-agent-token-exchange/-/main/">AI agent token exchange</a> · <a href="https://help.okta.com/oie/en-us/content/topics/apps/apps-cross-app-access.htm">Cross App Access</a> · <a href="https://help.okta.com/oie/en-us/content/topics/ai-agents/ai-agent-mcp-server.htm">AI agents &amp; MCP servers</a></li>
+    <li>Fabio Grasso: <a href="https://iam.fabiograsso.net/blog/okta-ai-blueprint/#demo-video">Okta AI Blueprint (demo video)</a> · <a href="https://iam.fabiograsso.net/blog/okta-ai-access-patterns/">Access Patterns</a> · <a href="https://iam.fabiograsso.net/blog/okta-ai-access-patterns-deep-dive/">Deep-Dive</a></li>
+    <li><a href="https://modelcontextprotocol.io">Model Context Protocol</a> — Streamable HTTP transport, <code>initialize</code>/<code>tools/*</code>, enterprise auth via XAA</li>
+    <li>This repo: <code>LEARNING.md</code> (this guide's markdown source), <code>OKTA_SETUP.md</code>, <code>UNDERSTANDING.md</code> — and <code>npm run dev</code> to watch every request live.</li>
+  </ul>
+</section>
+
+</main>
+
+<footer>Generated from the O4AA-Agent-Flows demo · seven flows, one agent key, zero static secrets · July 2026</footer>
+</div>
+
+<script>
+  // Nav clicks on flow links expand the target panel before scrolling.
+  document.querySelectorAll('nav.toc a[data-open]').forEach(function(a){
+    a.addEventListener('click', function(){
+      var d = document.getElementById(a.getAttribute('data-open'));
+      if (d && d.tagName === 'DETAILS') d.open = true;
+    });
+  });
+</script>
+
+</body>
+</html>
