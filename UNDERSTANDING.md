@@ -140,7 +140,7 @@ profile") or `GET /me/memberOf` ("List my groups"). Both reads need only the
 delegated `User.Read` scope on the Entra app. Server module:
 `server/xaa/azureStsBroker.js`.
 
-### 7. MCP Broker (GitHub)
+### 7. MCP Broker (GitHub) — `flow=mcp-github`
 
 `flow=mcp-github` — token-exchange → brokered token → GitHub MCP server (MCP protocol).
 
