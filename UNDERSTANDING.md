@@ -162,6 +162,29 @@ delegated `User.Read` scope on the Entra app. Server module:
 Server code: `server/xaa/mcpGithubBroker.js` (self-contained, including its own
 MCP-aware capture helper — `capture.js` is untouched).
 
+### STS Broker (GitHub) vs MCP Broker (GitHub) — what's actually different
+
+T1/T2/consent/revoke are near-identical (both are `oauth-sts` exchanges at the org token
+endpoint; both ORNs are `client-auth-settings:rsc…` — Okta's STS layer can't tell them
+apart). The difference is entirely at T3+:
+
+| | STS Broker (GitHub) | MCP Broker (GitHub) |
+|---|---|---|
+| Okta registration | OIN **application** (creds on Sign-On tab) | **Directory → MCP Servers** entry + Resource Connection type **MCP server** |
+| T3 target / protocol | GitHub **REST** (`api.github.com`, hardcoded endpoints) | GitHub **MCP server** (JSON-RPC over Streamable HTTP: `initialize` → `Mcp-Session-Id` → `tools/list` / `tools/call`) |
+| Capability discovery | baked into the agent's code | discovered at runtime via `tools/list` |
+
+Identity is orthogonal to protocol: a resource can move from REST to MCP without touching
+the trust chain. See [LEARNING.md](LEARNING.md) for the full deep dive.
+
+### Current flow status (as of July 2026, this tenant)
+
+| Flow | Status |
+|---|---|
+| Cross-App Access, Secrets, Service Accounts, STS Broker (GitHub), MCP Broker (GitHub) | ✅ working end-to-end |
+| NHI - Cross-App Access | ⚠️ T1 works; T2 blocked upstream — Okta's org id-JAG exchange accepts only `id_token`/`saml2` subject tokens (an access-token subject returns `'subject_token_type' is invalid or not supported`) |
+| STS Broker (Azure) | ⚠️ code complete; blocked upstream — no XAA-enabled Microsoft OIN integration exists yet, so `AZURE_RESOURCE` cannot be obtained |
+
 ---
 
 ## How the step pipeline works
