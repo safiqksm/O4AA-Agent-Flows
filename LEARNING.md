@@ -26,10 +26,11 @@
 11. [Flow 7 — MCP Broker (GitHub): id_token → brokered token → MCP protocol](#11-flow-7--mcp-broker-github)
 12. [The consent loop (`interaction_required`)](#12-the-consent-loop)
 13. [Revocation (RFC 7009)](#13-revocation)
-14. [Token validation at the resource (T4)](#14-token-validation-at-the-resource)
-15. [Security principles for agent builders](#15-security-principles)
-16. [War stories — real failures from building this demo](#16-war-stories)
-17. [Specs & further reading](#17-specs--further-reading)
+14. [Proving the managed connection — the audit trail](#14-proving-the-managed-connection)
+15. [Token validation at the resource (T4)](#15-token-validation-at-the-resource)
+16. [Security principles for agent builders](#16-security-principles)
+17. [War stories — real failures from building this demo](#17-war-stories)
+18. [Specs & further reading](#18-specs--further-reading)
 
 ---
 
@@ -154,7 +155,7 @@ client_assertion      = <the signed JWT>
 ```
 
 Okta verifies it against the **public JWK registered on the agent** (or service app).
-Three failure modes we hit for real — see [War stories](#16-war-stories):
+Three failure modes we hit for real — see [War stories](#17-war-stories):
 no JWK registered at all, `kid` mismatch, and wrong `aud` (must equal the endpoint —
 token endpoint for exchanges, **revoke endpoint for revocations**).
 
@@ -199,7 +200,7 @@ token endpoint for exchanges, **revoke endpoint for revocations**).
 |---|---|---|
 | `grant_type` | `urn:ietf:params:oauth:grant-type:token-exchange` | RFC 8693: trading one token for another |
 | `subject_token` | the user's **id_token** | proof of *whose* delegation this is |
-| `subject_token_type` | `urn:ietf:params:oauth:token-type:id_token` | tells the AS how to validate the subject (the org endpoint accepts only `id_token` or `saml2` — we proved this the hard way, see [War stories](#16-war-stories)) |
+| `subject_token_type` | `urn:ietf:params:oauth:token-type:id_token` | tells the AS how to validate the subject (the org endpoint accepts only `id_token` or `saml2` — we proved this the hard way, see [War stories](#17-war-stories)) |
 | `requested_token_type` | `urn:ietf:params:oauth:token-type:id-jag` | "give me an Identity Assertion Authorization Grant" |
 | `audience` | `https://…/oauth2/aus10ta4mhvArN8jE1d8` | the AS that must *accept* the id-JAG — the resource AS's issuer URL |
 | `scope` | `inventory:read` | narrow at request time (scope narrowing) |
@@ -241,7 +242,7 @@ agent identity carried, `scp: ["inventory:read"]`).
 
 ### T4 — the resource validates
 
-See [§14](#14-token-validation-at-the-resource). Nothing downstream trusts anything it
+See [§15](#15-token-validation-at-the-resource). Nothing downstream trusts anything it
 didn't verify itself.
 
 ---
@@ -453,7 +454,55 @@ resource connection.)
 
 ---
 
-## 14. Token validation at the resource
+## 14. Proving the managed connection
+
+"How do we know the agent isn't just using a hidden GitHub token?" — the question every
+security review will ask about the broker flows. Six pieces of evidence, ordered from
+what's visible on screen to what's independently verifiable. For a live team demo, run
+**2 → 1 → 3 → 5**: about two minutes for a complete story.
+
+**1. The T2 request names the managed connection on the wire.** Open the T2 step card →
+Request tab. The body carries
+`resource=orn:oktapreview:idp:<org-id>:client-auth-settings:<connection-id>` — the exact
+ORN shown on the AI Agent's **Resource Connections** tab. The request goes to *Okta's*
+token endpoint, not the provider's, authenticated only by the agent's `client_assertion`.
+
+**2. The codebase holds no provider credential.**
+
+```sh
+grep -ri "gho_\|ghp_\|GITHUB_TOKEN\|client_secret" server/ .env | grep -v OKTA_CLIENT_SECRET
+# → nothing
+```
+
+The only GitHub secret in the whole system is the OAuth app's client ID/secret — stored
+in Okta (Directory → MCP Servers credential set / OIN app Sign-On tab), where the agent
+cannot read it. If the agent still reaches the resource, the token *must* have come from
+Okta.
+
+**3. The revoke test (strongest live proof).** Click **Revoke STS token**, re-run the
+flow → T2 returns `interaction_required`. Nothing changed on the provider and nothing
+changed locally; only Okta's vaulted grant was deleted, and access died instantly. Okta
+is demonstrably the gatekeeper, not a cached credential.
+
+**4. The kill switch.** In Okta Admin, deactivate the Resource Connection (or the
+credential set on the MCP Server entry) → the byte-identical T2 request now fails, with
+agent code, keys, and prior consent all untouched. Re-enable and it works again. That is
+IT-controlled, per-connection revocation — the point of managed connections.
+
+**5. The Okta System Log (compliance-grade record).** Admin console → **Reports →
+System Log**, filter `client.id eq "<your wlp… agent id>"` (or search the `rsc…`
+connection id). Every token-exchange grant appears with **actor = the agent, subject =
+the signed-in user, target = the resource connection**, timestamped to match each run —
+per-release attribution of user + agent + connection.
+
+**6. The provider's side agrees.** GitHub → Settings → Applications → **Authorized OAuth
+Apps** shows the app authorized at exactly the moment the user clicked
+*Authorize connection ↗*, and the `get_me` MCP call returns *that user's* identity —
+the brokered token carries the consenting user's delegation, not a bot account.
+
+---
+
+## 15. Token validation at the resource
 
 The Inventory MCP (T4) shows the non-negotiable checklist every resource must run —
 `server/util/verifyToken.js`:
@@ -470,7 +519,7 @@ does *no* signature check, the server does. Never authorize off an unverified de
 
 ---
 
-## 15. Security principles
+## 16. Security principles
 
 Distilled from the flows above — the checklist to present to your team:
 
@@ -496,7 +545,7 @@ Distilled from the flows above — the checklist to present to your team:
 
 ---
 
-## 16. War stories
+## 17. War stories
 
 Real failures from building this demo — each one is a lesson you can reuse:
 
@@ -512,7 +561,7 @@ Real failures from building this demo — each one is a lesson you can reuse:
 
 ---
 
-## 17. Specs & further reading
+## 18. Specs & further reading
 
 - **RFC 8693** — OAuth 2.0 Token Exchange (`subject_token`, `requested_token_type`, `act` claim)
 - **RFC 7523** — JWT Profile for Client Authentication & Authorization Grants (`private_key_jwt`, jwt-bearer)
