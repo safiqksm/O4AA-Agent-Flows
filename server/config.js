@@ -69,6 +69,9 @@ export const config = {
     tokenUrl: tokenEndpoint(AGENT_AUTH_SERVER),
     clientId: process.env.AGENT_CLIENT_ID,
     privateKeyFile: process.env.AGENT_PRIVATE_KEY_FILE,
+    // PEM content (e.g. from Key Vault via an App Service setting) takes
+    // precedence over privateKeyFile when both are present.
+    privateKey: process.env.AGENT_PRIVATE_KEY || undefined,
     kid: process.env.AGENT_KID,
     // 'aud' of the client_assertion JWT = the token endpoint it's sent to (RFC 7523).
     assertionAudience: tokenEndpoint(AGENT_AUTH_SERVER),
@@ -100,6 +103,7 @@ export const config = {
   service: {
     clientId: process.env.SERVICE_CLIENT_ID,
     privateKeyFile: process.env.SERVICE_PRIVATE_KEY_FILE,
+    privateKey: process.env.SERVICE_PRIVATE_KEY || undefined,
     kid: process.env.SERVICE_KID,
     // T1 only: SERVICE_ISSUER = the auth server the service app gets its token from
     // (client_credentials); SERVICE_AUDIENCE = the 'audience' param in that T1 call.

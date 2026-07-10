@@ -304,6 +304,24 @@ Payload: {
  Agent ──T3──▶ GET/POST https://api.github.com/repos/&lt;owner&gt;/&lt;repo&gt;/pulls   Bearer gho_…
  Agent ──R1──▶ POST /oauth2/v1/revoke  token_type_hint=oauth_sts   <span class="c">(re-arms consent)</span></code></pre>
       <p>The brokered <code>gho_…</code> token is <b>GitHub's</b>, not Okta's — opaque, provider lifetime, scopes governed by the Resource Connection. The agent never sees the GitHub client secret; that lives in the OIN app's <b>Sign-On → Client authentication settings</b>.</p>
+      <h3>Behind the scenes — two separate OAuth conversations</h3>
+      <p>The flow is really <b>two OAuth conversations that never touch</b>, and Okta is the only party in both. GitHub never learns an agent exists — it sees an ordinary OAuth-app authorization in which <em>Okta itself</em> is the OAuth client.</p>
+      <div class="tablewrap"><table>
+        <tr><th></th><th>Conversation A — agent ↔ Okta</th><th>Conversation B — Okta ↔ GitHub</th></tr>
+        <tr><td>Protocol</td><td>RFC 8693 token exchange + RFC 7523 <code>client_assertion</code></td><td>plain OAuth 2.0 authorization-code flow</td></tr>
+        <tr><td>Client credential</td><td>agent private key (<code>keys/agent.pem</code>)</td><td>GitHub <code>client_id</code> + secret vaulted in the OIN app</td></tr>
+        <tr><td>Carried by</td><td>server-to-server POSTs from the app</td><td>the user's <b>browser</b> (redirects) + Okta's back-channel (code exchange)</td></tr>
+        <tr><td>Who sees what</td><td>agent sees only <code>interaction_uri</code> and, later, <code>gho_…</code></td><td>agent sees nothing — no code, no secret, no refresh token</td></tr>
+      </table></div>
+      <p>What happens when the user opens <code>interaction_uri</code> — <b>all of it on Okta's side; the demo app is not involved</b>:</p>
+      <ol>
+        <li>The URI lands on an <b>Okta-hosted consent page</b> (riding the user's existing Okta session): "Agent X wants to access GitHub on your behalf."</li>
+        <li>On approval, <b>Okta</b> (not the app) redirects the browser to <code>github.com/login/oauth/authorize?client_id=&lt;OIN app's GitHub client_id&gt;&amp;redirect_uri=https://&lt;okta&gt;/oauth2/v1/sts/callback&amp;state=…</code></li>
+        <li>The user approves on <b>GitHub's</b> page; GitHub redirects the browser back to <b>Okta's</b> callback with <code>?code=…</code></li>
+        <li>Okta exchanges the code back-channel at <code>github.com/login/oauth/access_token</code>, authenticating with the vaulted client secret → receives <code>gho_…</code> and <b>vaults it keyed by user × connection</b>.</li>
+        <li>Nothing is returned to the agent. The retry succeeds because consent is <b>server-side state inside Okta</b> — which is exactly why re-sending the byte-identical T2 request gets a different answer.</li>
+      </ol>
+      <div class="note"><b>Where the app's code stops:</b> the app's only communication with Okta in this flow is <b>two authenticated POSTs</b> — T2 to <code>/oauth2/v1/token</code> and R1 to <code>/oauth2/v1/revoke</code> (<code>server/xaa/stsBroker.js</code>). The <code>interaction_uri</code> arrives as plain JSON in the 400 body; the React UI just renders it as an <b>Authorize ↗</b> link (<code>Chat.jsx</code>) and the browser takes it from there. The app hosts <b>no OAuth callback for GitHub</b> — the only callback registered on the GitHub OAuth app is Okta's own <code>/oauth2/v1/sts/callback</code>.</div>
     </div>
   </details>
 
@@ -364,7 +382,19 @@ Payload: {
     <li>On the consent page Okta runs the provider's authorization-code flow — the provider redirects back to <code>https://&lt;okta-domain&gt;/oauth2/v1/sts/callback</code> (this exact URL must be registered on the provider OAuth app). Okta vaults the provider token <b>server-side</b>.</li>
     <li>The agent <b>retries the byte-identical request</b> → <code>HTTP 200</code>. No new parameter, no code handed to the agent — the state change happened entirely inside Okta.</li>
   </ol>
-  <div class="note"><b>Security property:</b> the agent never participates in the provider's OAuth dance and never sees the provider client secret or refresh token. Consent is per user × per connection, auditable, and revocable.</div>
+  <div class="note"><b>Security property:</b> the agent never participates in the provider's OAuth dance and never sees the provider client secret or refresh token. Consent is per user × per connection, auditable, and revocable. In traffic terms: the app server exchanges only <b>two POSTs</b> with Okta (token-exchange and revoke); the entire consent redirect chain runs <b>browser ↔ Okta ↔ provider</b>, with the app out of the loop.</div>
+
+  <h3>Code-side vs Okta-side — exactly who does what</h3>
+  <p><b>What your code does (the only app ↔ Okta communication):</b></p>
+  <ol>
+    <li><code>stsBroker.js</code> sends <b>one POST</b> to <code>https://&lt;org&gt;/oauth2/v1/token</code> (the token-exchange). That's a server-to-server HTTPS call authenticated with the agent's private key.</li>
+    <li>On first run, Okta answers <code>400</code> with a JSON body containing <code>interaction_uri</code>. The code (<code>stsBroker.js:45</code>) just <b>plucks that string out of the JSON</b> — it's data, not a redirect.</li>
+    <li><code>routes/ask.js</code> passes it to the UI, and <code>Chat.jsx</code> renders it as the <b>Authorize ↗</b> link (<code>&lt;a href={interaction.uri} target="_blank"&gt;</code>). Opening it is a plain browser navigation initiated by the user's click.</li>
+    <li>Later, one more POST for revoke (<code>/oauth2/v1/revoke</code>). That's it — <b>two POSTs total</b>; the app server never talks to GitHub's OAuth endpoints at all.</li>
+  </ol>
+  <p><b>What Okta does (everything after the click):</b> the <code>interaction_uri</code> points at an Okta-hosted consent page. When the user approves, it's <b>Okta's web server</b> that issues the HTTP 302 sending the browser to <code>github.com/login/oauth/authorize</code> — with Okta's stored GitHub <code>client_id</code> and <code>redirect_uri=https://&lt;okta&gt;/oauth2/v1/sts/callback</code>. GitHub sends the browser back to <b>Okta's</b> callback with the authorization code, and Okta exchanges that code for <code>gho_…</code> back-channel using the client secret vaulted in the OIN app. The app hosts <b>no callback route</b> for any of this — the only GitHub callback that exists is Okta's.</p>
+  <p><b>The tell-tale proof it's out-of-band:</b> the agent's retry is the <b>byte-identical request</b>. If the app's code were part of the dance, the retry would have to carry something new (a code, a session, a nonce). It doesn't — the state change happened entirely inside Okta's vault.</p>
+  <div class="note"><b>What is the <code>interaction_uri</code>, actually?</b> A URL on <b>your own Okta org's domain</b> (e.g. <code>https://&lt;org&gt;.oktapreview.com/…</code>), minted by Okta at the moment it returns the 400. Its path carries an <b>opaque one-time handle</b> that Okta maps server-side to the pending grant request (user × resource connection × agent) — the URI itself contains no GitHub parameters. Okta "gets" it from nowhere: it <em>creates</em> the pending-consent record and the URI together, from what the T2 request already told it — <code>subject_token</code> = which user, <code>resource</code> ORN = which connection, <code>client_assertion</code> = which agent. To see a real one, run the STS flow and check the T2 Response tab (or set <code>DEBUG_FLOWS=1</code>).</div>
 </section>
 
 <section id="revoke">

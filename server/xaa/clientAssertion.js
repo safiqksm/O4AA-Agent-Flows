@@ -7,11 +7,39 @@ import { config } from '../config.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-// Cache parsed private keys by file path (supports the agent cert and the service cert).
+// Cache parsed private keys by cache key (file path, or 'env:<file path>' when
+// sourced from an env var — supports the agent cert and the service cert).
 const keyCache = new Map();
 
-function loadKey(privateKeyFile) {
-  if (!privateKeyFile) throw new Error('No private key file configured.');
+function parseKey(pem, source) {
+  // crypto.createPrivateKey accepts PKCS#8 ("BEGIN PRIVATE KEY") and PKCS#1
+  // ("BEGIN RSA PRIVATE KEY") PEMs; jose can sign with the resulting KeyObject.
+  let key;
+  try {
+    key = crypto.createPrivateKey(pem);
+  } catch (err) {
+    throw new Error(`Could not parse private key from ${source}: ${err.message}`);
+  }
+  if (key.asymmetricKeyType !== 'rsa') {
+    throw new Error(`Private key from ${source} is '${key.asymmetricKeyType}', but RS256 requires an RSA key.`);
+  }
+  return key;
+}
+
+// privateKey (PEM content, e.g. from Key Vault via an App Service setting) takes
+// precedence over privateKeyFile, which is only used for local dev.
+function loadKey({ privateKeyFile, privateKey } = {}) {
+  if (privateKey) {
+    const cacheKey = `env:${privateKeyFile || 'inline'}`;
+    if (keyCache.has(cacheKey)) return keyCache.get(cacheKey);
+    // App settings UIs often can't hold literal newlines — accept escaped \n too.
+    const pem = privateKey.includes('\\n') ? privateKey.replace(/\\n/g, '\n') : privateKey;
+    const key = parseKey(pem, 'env var');
+    keyCache.set(cacheKey, key);
+    return key;
+  }
+
+  if (!privateKeyFile) throw new Error('No private key configured.');
   if (keyCache.has(privateKeyFile)) return keyCache.get(privateKeyFile);
 
   const file = path.isAbsolute(privateKeyFile)
@@ -21,17 +49,7 @@ function loadKey(privateKeyFile) {
     throw new Error(`Private key not found at ${file}.`);
   }
   const pem = fs.readFileSync(file, 'utf8');
-  // crypto.createPrivateKey accepts PKCS#8 ("BEGIN PRIVATE KEY") and PKCS#1
-  // ("BEGIN RSA PRIVATE KEY") PEMs; jose can sign with the resulting KeyObject.
-  let key;
-  try {
-    key = crypto.createPrivateKey(pem);
-  } catch (err) {
-    throw new Error(`Could not parse private key at ${file}: ${err.message}`);
-  }
-  if (key.asymmetricKeyType !== 'rsa') {
-    throw new Error(`Private key at ${file} is '${key.asymmetricKeyType}', but RS256 requires an RSA key.`);
-  }
+  const key = parseKey(pem, file);
   keyCache.set(privateKeyFile, key);
   return key;
 }
@@ -40,8 +58,8 @@ function loadKey(privateKeyFile) {
  * Build a signed private_key_jwt client assertion (RFC 7523 §2.2):
  * iss=sub=clientId, aud=the token endpoint it is sent to.
  */
-export async function buildClientAssertion({ clientId, audience, kid, privateKeyFile }) {
-  const key = loadKey(privateKeyFile || config.agent.privateKeyFile);
+export async function buildClientAssertion({ clientId, audience, kid, privateKeyFile, privateKey }) {
+  const key = loadKey({ privateKeyFile, privateKey });
   const now = Math.floor(Date.now() / 1000);
   const jti = `${now}-${Math.random().toString(36).slice(2)}-xaa`;
   return new SignJWT({})
@@ -62,6 +80,7 @@ export function buildAgentClientAssertion() {
     audience: config.agent.assertionAudience,
     kid: config.agent.kid,
     privateKeyFile: config.agent.privateKeyFile,
+    privateKey: config.agent.privateKey,
   });
 }
 
@@ -72,6 +91,7 @@ export function buildResourceClientAssertion() {
     audience: config.resource.assertionAudience,
     kid: config.resource.kid,
     privateKeyFile: config.agent.privateKeyFile,
+    privateKey: config.agent.privateKey,
   });
 }
 
@@ -82,5 +102,6 @@ export function buildServiceClientAssertion(audience) {
     audience,
     kid: config.service.kid,
     privateKeyFile: config.service.privateKeyFile,
+    privateKey: config.service.privateKey,
   });
 }
