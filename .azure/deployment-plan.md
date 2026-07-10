@@ -11,7 +11,7 @@
 | Subscription | Azure_Subscription2 (`7e86c522-de98-4ca6-b435-5bf823da37f8`) |
 | Resource group | `rg-o4aa-agent-flows` (East US, metadata only) |
 | Region (actual resources) | **Central US** — East US had 0 App Service VM quota on this subscription (`SubscriptionIsOverQuotaForSku`); Central US validated cleanly |
-| App Service Plan | `plan-o4aa-agent-flows`, **F1 (Free)** — B1 also hit the same East US quota wall; switched tiers instead of filing a quota-increase ticket. F1 has no `alwaysOn` (cold starts) and a 60 CPU-min/day cap — fine for a demo, revisit if it becomes an issue |
+| App Service Plan | `plan-o4aa-agent-flows`, **B1 (Basic, ~$13/mo)**, Central US — started on F1 (Free) but its 60 CPU-min/day cap tripped almost immediately and blocked the first deploy (`state: QuotaExceeded`, 403 on `azure/webapps-deploy@v3`). Upgraded in place with `az appservice plan update --sku B1`; `alwaysOn` flipped on manually afterward since Bicep only sets it at initial provision, not on imperative SKU changes |
 | Web App | `o4aa-agent-flows-fjquv5bqmgghc` → `https://o4aa-agent-flows-fjquv5bqmgghc.azurewebsites.net` |
 | Key Vault | `kv-o4aaagentflows-fjquv5` (RBAC mode) — 5 secrets seeded: SESSION-SECRET, OKTA-CLIENT-SECRET, AGENT-PRIVATE-KEY, SERVICE-PRIVATE-KEY, MCP-BASIC-PASSWORD |
 | Web App managed identity | `563ce066-fbb8-44de-a2e6-9e5a2c2efb51` — granted Key Vault Secrets User on the vault |
