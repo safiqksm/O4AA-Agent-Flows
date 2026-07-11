@@ -170,8 +170,8 @@ async function runCredentialFlow(flow, idToken, toolName, steps) {
 
 // Service App: client_credentials → id-JAG → access token → token-validated MCP call.
 async function runServiceFlow(toolName, steps) {
-  if (!config.service.clientId || !config.service.privateKeyFile) {
-    return 'Service App flow is not configured — set SERVICE_CLIENT_ID and SERVICE_PRIVATE_KEY_FILE.';
+  if (!config.service.clientId || (!config.service.privateKeyFile && !config.service.privateKey)) {
+    return 'Service App flow is not configured — set SERVICE_CLIENT_ID and SERVICE_PRIVATE_KEY_FILE (or SERVICE_PRIVATE_KEY).';
   }
 
   const t1 = await requestServiceToken();
