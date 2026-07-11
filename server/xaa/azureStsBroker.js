@@ -20,6 +20,7 @@ export async function requestAzureResourceToken(idToken) {
     audience: config.azureSts.assertionAudience,
     kid: config.agent.kid,
     privateKeyFile: config.agent.privateKeyFile,
+    privateKey: config.agent.privateKey,
   });
 
   const bodyParams = {
@@ -99,6 +100,7 @@ export async function revokeAzureStsToken(token) {
     audience: config.azureSts.revokeAssertionAudience,
     kid: config.agent.kid,
     privateKeyFile: config.agent.privateKeyFile,
+    privateKey: config.agent.privateKey,
   });
 
   const bodyParams = {

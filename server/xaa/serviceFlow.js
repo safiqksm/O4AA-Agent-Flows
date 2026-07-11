@@ -44,6 +44,7 @@ export async function requestServiceIdJag(serviceToken) {
     audience: config.service.tokenUrl,
     kid: config.agent.kid,
     privateKeyFile: config.agent.privateKeyFile,
+    privateKey: config.agent.privateKey,
   });
 
   const bodyParams = {
@@ -78,6 +79,7 @@ export async function exchangeServiceIdJag(idJag) {
     audience: config.resource.tokenUrl,
     kid: config.agent.kid,
     privateKeyFile: config.agent.privateKeyFile,
+    privateKey: config.agent.privateKey,
   });
 
   const bodyParams = {

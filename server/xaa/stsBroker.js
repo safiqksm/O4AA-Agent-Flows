@@ -19,6 +19,7 @@ export async function requestResourceToken(idToken) {
     audience: config.sts.assertionAudience,
     kid: config.agent.kid,
     privateKeyFile: config.agent.privateKeyFile,
+    privateKey: config.agent.privateKey,
   });
 
   const bodyParams = {
@@ -98,6 +99,7 @@ export async function revokeStsToken(token) {
     audience: config.sts.revokeAssertionAudience,
     kid: config.agent.kid,
     privateKeyFile: config.agent.privateKeyFile,
+    privateKey: config.agent.privateKey,
   });
 
   const bodyParams = {

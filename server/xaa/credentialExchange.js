@@ -30,6 +30,8 @@ async function requestVaultedCredential({ flowCfg, requestedTokenType, credentia
     clientId: config.agent.clientId,
     audience: flowCfg.assertionAudience,
     kid: config.agent.kid,
+    privateKeyFile: config.agent.privateKeyFile,
+    privateKey: config.agent.privateKey,
   });
 
   const bodyParams = {

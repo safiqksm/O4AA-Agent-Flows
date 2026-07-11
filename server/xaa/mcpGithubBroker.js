@@ -114,6 +114,7 @@ export async function requestMcpGithubToken(idToken) {
     audience: config.mcpGithub.assertionAudience,
     kid: config.agent.kid,
     privateKeyFile: config.agent.privateKeyFile,
+    privateKey: config.agent.privateKey,
   });
 
   const bodyParams = {
@@ -253,6 +254,7 @@ export async function revokeMcpGithubToken(token) {
     audience: config.mcpGithub.revokeAssertionAudience,
     kid: config.agent.kid,
     privateKeyFile: config.agent.privateKeyFile,
+    privateKey: config.agent.privateKey,
   });
 
   const bodyParams = {
