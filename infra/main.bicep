@@ -62,7 +62,9 @@ resource webApp 'Microsoft.Web/sites@2023-12-01' = {
     httpsOnly: true
     siteConfig: {
       linuxFxVersion: 'NODE|${nodeVersion}'
-      appCommandLine: 'npm start'
+      // A custom command skips the platform's default `cd` into the site root,
+      // so npm can't find package.json unless we cd there explicitly.
+      appCommandLine: 'cd /home/site/wwwroot && npm start'
       minTlsVersion: '1.2'
       ftpsState: 'Disabled'
       alwaysOn: planSkuName != 'F1' && planSkuName != 'D1'
