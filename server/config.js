@@ -15,10 +15,13 @@ const REQUIRED = [
   'OKTA_REDIRECT_URI',
   'RESOURCE_AUTH_SERVER',
   'AGENT_CLIENT_ID',
-  'AGENT_PRIVATE_KEY_FILE',
   'AGENT_KID',
   'RESOURCE_CLIENT_ID',
 ];
+
+// Satisfied by either the file path (local dev) or the PEM content itself
+// (e.g. a Key Vault reference on App Service) — see server/xaa/clientAssertion.js.
+const REQUIRES_ONE_OF = [['AGENT_PRIVATE_KEY_FILE', 'AGENT_PRIVATE_KEY']];
 
 // Build the standard Okta token endpoint from an authorization server base URL.
 // Custom auth server: https://org.okta.com/oauth2/<id>  -> .../oauth2/<id>/v1/token
@@ -203,8 +206,15 @@ export const config = {
   },
 };
 
+function isSet(k) {
+  return process.env[k] && String(process.env[k]).trim() !== '';
+}
+
 export function validateConfig() {
-  const missing = REQUIRED.filter((k) => !process.env[k] || String(process.env[k]).trim() === '');
+  const missing = REQUIRED.filter((k) => !isSet(k));
+  REQUIRES_ONE_OF.forEach((group) => {
+    if (!group.some(isSet)) missing.push(group.join(' or '));
+  });
   if (missing.length) {
     console.error('\n❌ Missing required environment variables:\n');
     missing.forEach((k) => console.error(`   - ${k}`));
